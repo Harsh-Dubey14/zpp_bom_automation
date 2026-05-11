@@ -1,0 +1,222 @@
+<mvc:View
+    controllerName="zppbomautomation.controller.BOMItem"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:f="sap.ui.layout.form"
+    xmlns:core="sap.ui.core"
+    displayBlock="true">
+
+    <Page
+        id="pageBOMItems"
+        title="Create Material BOM"
+        showNavButton="true"
+        navButtonPress=".onNavBack">
+
+        <content>
+            <VBox class="sapUiResponsiveContentPadding">
+
+                <MessageStrip
+                    text="{resultModel>/Message}"
+                    type="{resultModel>/MessageType}"
+                    showIcon="true"
+                    visible="{resultModel>/ShowMessage}"
+                    class="sapUiSmallMarginBottom"/>
+
+                <f:SimpleForm
+                    id="headerForm"
+                    title="BOM Header Information"
+                    editable="false"
+                    layout="ResponsiveGridLayout"
+                    labelSpanXL="3"
+                    labelSpanL="3"
+                    labelSpanM="4"
+                    labelSpanS="12"
+                    columnsXL="2"
+                    columnsL="2"
+                    columnsM="1">
+
+                    <f:content>
+                        <Label text="Material"/>
+                        <Text text="{headerModel>/Material}"/>
+
+                        <Label text="Plant"/>
+                        <Text text="{headerModel>/Plant}"/>
+
+                        <Label text="BOM Usage"/>
+                        <Text text="{headerModel>/BomUsage}"/>
+
+                        <Label text="Alternative BOM"/>
+                        <Text text="{headerModel>/AltBom}"/>
+
+                        <Label text="Base Quantity"/>
+                        <Text text="{headerModel>/BaseQty}"/>
+
+                        <Label text="Valid From"/>
+                        <Text text="{headerModel>/ValidFrom}"/>
+
+                        <Label text="Base UOM"/>
+                        <Text text="{headerModel>/BaseUom}"/>
+
+                        <Label text="Request Status"/>
+                        <ObjectStatus
+                            text="{resultModel>/Status}"
+                            state="{resultModel>/StatusState}"/>
+
+                        <Label text="BOM Request ID"/>
+                        <Text text="{resultModel>/BomId}"/>
+
+                        <Label text="Created BOM"/>
+                        <ObjectIdentifier
+                            title="{resultModel>/BillOfMaterial}"
+                            text="{resultModel>/CreatedBomVariant}"/>
+                    </f:content>
+                </f:SimpleForm>
+
+                <Table
+                    id="bomItemsTable"
+                    inset="false"
+                    growing="true"
+                    items="{itemModel>/items}"
+                    mode="MultiSelect"
+                    sticky="ColumnHeaders,HeaderToolbar"
+                    class="sapUiSmallMarginTop">
+
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="BOM Items" level="H3"/>
+                            <ToolbarSpacer/>
+
+                            <Button
+                                icon="sap-icon://add"
+                                text="Add"
+                                type="Emphasized"
+                                press=".onAddRow"
+                                enabled="{resultModel>/Editable}"/>
+
+                            <Button
+                                text="Delete"
+                                icon="sap-icon://delete"
+                                type="Reject"
+                                press=".onDelete"
+                                enabled="{resultModel>/Editable}"/>
+
+                            <Button
+                                text="Export Excel"
+                                icon="sap-icon://excel-attachment"
+                                press=".onExportExcel"/>
+
+                            <Button
+                                text="Select All"
+                                icon="sap-icon://multi-select"
+                                press=".onSelectAll"/>
+                        </OverflowToolbar>
+                    </headerToolbar>
+
+                    <columns>
+                        <Column width="5rem" hAlign="Center">
+                            <Text text="Item"/>
+                        </Column>
+
+                        <Column minScreenWidth="Tablet" demandPopin="true">
+                            <Text text="Component"/>
+                        </Column>
+
+                        <Column minScreenWidth="Tablet" demandPopin="true">
+                            <Text text="Description"/>
+                        </Column>
+
+                        <Column width="8rem" hAlign="End" minScreenWidth="Tablet" demandPopin="true">
+                            <Text text="Quantity"/>
+                        </Column>
+
+                        <Column width="6rem" minScreenWidth="Desktop" demandPopin="true">
+                            <Text text="UoM"/>
+                        </Column>
+
+                        <Column minScreenWidth="Desktop" demandPopin="true">
+                            <Text text="Sort String"/>
+                        </Column>
+
+                        <Column width="6rem" hAlign="Center" minScreenWidth="Desktop" demandPopin="true">
+                            <Text text="Category"/>
+                        </Column>
+
+                        <Column minScreenWidth="Desktop" demandPopin="true">
+                            <Text text="Item Text"/>
+                        </Column>
+                    </columns>
+
+                    <items>
+                        <ColumnListItem vAlign="Middle">
+                            <cells>
+                                <Text text="{itemModel>item}"/>
+
+                                <Input
+                                    value="{itemModel>component}"
+                                    showValueHelp="true"
+                                    editable="{resultModel>/Editable}"/>
+
+                                <Text text="{itemModel>description}"/>
+
+                                <Input
+                                    value="{itemModel>quantity}"
+                                    textAlign="End"
+                                    type="Number"
+                                    editable="{resultModel>/Editable}"/>
+
+                                <Input
+                                    value="{itemModel>uom}"
+                                    width="5rem"
+                                    showValueHelp="true"
+                                    valueHelpRequest=".onUomValueHelp"
+                                    editable="{resultModel>/Editable}"/>
+
+                                <Input
+                                    value="{itemModel>sortString}"
+                                    editable="{resultModel>/Editable}"/>
+
+                                <Input
+                                    value="{itemModel>category}"
+                                    width="3rem"
+                                    editable="{resultModel>/Editable}"/>
+
+                                <Input
+                                    value="{itemModel>itemText}"
+                                    editable="{resultModel>/Editable}"/>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+            </VBox>
+        </content>
+
+        <footer>
+            <OverflowToolbar>
+                <ToolbarSpacer/>
+
+                <Button
+                    text="Create BOM"
+                    type="Emphasized"
+                    icon="sap-icon://save"
+                    press=".onSave"
+                    enabled="{resultModel>/CanSave}"/>
+
+                <Button
+                    text="Retry Submit"
+                    type="Attention"
+                    icon="sap-icon://restart"
+                    press=".onRetrySubmit"
+                    enabled="{resultModel>/CanRetry}"/>
+
+                <Button
+                    text="New BOM"
+                    icon="sap-icon://add-document"
+                    press=".onNewBOM"/>
+
+                <Button
+                    text="Cancel"
+                    press=".onCancel"/>
+            </OverflowToolbar>
+        </footer>
+    </Page>
+</mvc:View>
