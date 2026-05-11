@@ -1,0 +1,23 @@
+{
+  "generationParameters": {
+    "generationDate": "Mon May 11 2026 21:09:05 GMT+0000 (Coordinated Universal Time)",
+    "generatorPlatform": "SAP Business Application Studio",
+    "serviceType": "OData URL",
+    "metadataFilename": "",
+    "serviceUrl": "https://my433482-api.s4hana.cloud.sap/sap/opu/odata4/sap/zui_bom_automation_v4/srvd_a2x/sap/zui_bom_automation/0001/",
+    "appName": "zpp_bom_automation",
+    "appTitle": "Bom Automation",
+    "appDescription": "An SAP Fiori application.",
+    "appNamespace": "",
+    "ui5Theme": "sap_horizon",
+    "ui5Version": "1.142.12",
+    "enableEslint": true,
+    "enableTypeScript": false,
+    "showMockDataInfo": true,
+    "generatorVersion": "1.24.0",
+    "template": "Basic V4",
+    "generatorName": "SAP Fiori Application Generator",
+    "entityRelatedConfig": [],
+    "launchText": "To launch the generated application, run the following from the generated application root folder:\n\n```\n    npm start\n```"
+  }
+}
