@@ -40,12 +40,7 @@
                         <Input id="inpBomUsage" value="{headerModel>/BomUsage}" showValueHelp="true" valueHelpRequest=".onBomUsageValueHelp" liveChange=".onHeaderFieldChange"/>
 
                         <Label text="Alternative BOM" required="true"/>
-                      <Input
-    value="{headerModel>/AltBom}"
-    editable="false"
-    enabled="true"
-    maxLength="2"
-    placeholder="Auto-filled after validation" />
+                        <Input value="{headerModel>/AltBom}" editable="false" enabled="true" maxLength="2" placeholder="Auto-filled after validation" />
 
                         <Label text="Base Quantity" required="true"/>
                         <Input id="inpBaseQty" value="{headerModel>/BaseQty}" type="Number" liveChange=".onHeaderFieldChange"/>
