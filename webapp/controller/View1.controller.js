@@ -153,8 +153,13 @@ sap.ui.define(
                     return;
                 }
 
+                /*
+                 * Whenever Material / Plant / BOM Usage changes,
+                 * old validation, Base UOM and Alternate BOM must be cleared.
+                 */
                 oHeaderModel.setProperty("/IsValidated", false);
                 oHeaderModel.setProperty("/BaseUom", "");
+                oHeaderModel.setProperty("/AltBom", "");
                 oHeaderModel.setProperty("/Message", "");
                 oHeaderModel.setProperty("/MessageType", "Information");
                 oHeaderModel.setProperty("/ShowMessage", false);
@@ -172,15 +177,12 @@ sap.ui.define(
 
                 var oHeader = oHeaderModel.getData();
 
-                if (
-                    !oHeader.Material ||
-                    !oHeader.Plant ||
-                    !oHeader.BomUsage ||
-                    !oHeader.AltBom
-                ) {
-                    MessageBox.error(
-                        "Please fill Material, Plant, BOM Usage and Alternative BOM."
-                    );
+                /*
+                 * Alternate BOM is not entered by user anymore.
+                 * It comes from GetNextAltBOM API.
+                 */
+                if (!oHeader.Material || !oHeader.Plant || !oHeader.BomUsage) {
+                    MessageBox.error("Please fill Material, Plant and BOM Usage.");
                     return;
                 }
 
@@ -191,8 +193,13 @@ sap.ui.define(
 
                 if (!oHeader.IsValidated) {
                     MessageBox.error(
-                        "Please validate Material and Plant before continuing."
+                        "Please validate Material, Plant and BOM Usage before continuing."
                     );
+                    return;
+                }
+
+                if (!oHeader.AltBom) {
+                    MessageBox.error("Alternate BOM is missing. Please validate again.");
                     return;
                 }
 
@@ -211,45 +218,99 @@ sap.ui.define(
 
                 var oHeader = oHeaderModel.getData();
 
-                if (!oHeader.Material || !oHeader.Plant) {
-                    MessageBox.error("Please enter Material and Plant first.");
+                /*
+                 * New required fields for validation:
+                 * Material + Plant + BOM Usage
+                 */
+                if (!oHeader.Material || !oHeader.Plant || !oHeader.BomUsage) {
+                    MessageBox.error("Please enter Material, Plant and BOM Usage first.");
                     return;
                 }
 
                 try {
-                    var oPayload = {
+                    /*
+                     * Step 1: Validate Material + Plant
+                     */
+                    var oValidatePayload = {
                         Material: oHeader.Material,
                         Plant: oHeader.Plant
                     };
 
-                    var oResponse = await this._postAction(
+                    var oValidateResponse = await this._postAction(
                         "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ValidateMaterialPlant",
-                        oPayload
+                        oValidatePayload
                     );
 
-                    oHeaderModel.setProperty("/Message", oResponse.Message || "");
+                    if (!oValidateResponse.IsValid) {
+                        oHeaderModel.setProperty("/BaseUom", "");
+                        oHeaderModel.setProperty("/AltBom", "");
+                        oHeaderModel.setProperty("/IsValidated", false);
+                        oHeaderModel.setProperty("/Message", oValidateResponse.Message || "");
+                        oHeaderModel.setProperty("/MessageType", "Error");
+                        oHeaderModel.setProperty("/ShowMessage", true);
+
+                        MessageBox.error(
+                            oValidateResponse.Message ||
+                                "Material and Plant validation failed."
+                        );
+
+                        this._syncHeaderToRoute();
+                        return;
+                    }
+
+                    oHeaderModel.setProperty("/BaseUom", oValidateResponse.BaseUnit || "");
+
+                    /*
+                     * Step 2: Get Next Alternate BOM
+                     */
+                    var oAltBomPayload = {
+                        Material: oHeader.Material,
+                        Plant: oHeader.Plant,
+                        BomUsage: oHeader.BomUsage
+                    };
+
+                    var oAltBomResponse = await this._postAction(
+                        "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.GetNextAltBOM",
+                        oAltBomPayload
+                    );
+
+                    oHeaderModel.setProperty("/Message", oAltBomResponse.Message || "");
                     oHeaderModel.setProperty("/ShowMessage", true);
 
-                    if (oResponse.IsValid) {
-                        oHeaderModel.setProperty("/BaseUom", oResponse.BaseUnit || "");
+                    if (oAltBomResponse.Success) {
+                        oHeaderModel.setProperty(
+                            "/AltBom",
+                            oAltBomResponse.NextAltBom || ""
+                        );
                         oHeaderModel.setProperty("/IsValidated", true);
                         oHeaderModel.setProperty("/MessageType", "Success");
 
                         MessageToast.show(
-                            oResponse.Message || "Material and Plant are valid."
+                            oAltBomResponse.Message ||
+                                "Material, Plant and BOM Usage are valid."
                         );
                     } else {
-                        oHeaderModel.setProperty("/BaseUom", "");
+                        oHeaderModel.setProperty("/AltBom", "");
                         oHeaderModel.setProperty("/IsValidated", false);
                         oHeaderModel.setProperty("/MessageType", "Error");
 
                         MessageBox.error(
-                            oResponse.Message || "Material and Plant validation failed."
+                            oAltBomResponse.Message ||
+                                "Alternate BOM could not be determined."
                         );
                     }
 
                     this._syncHeaderToRoute();
                 } catch (oError) {
+                    oHeaderModel.setProperty("/BaseUom", "");
+                    oHeaderModel.setProperty("/AltBom", "");
+                    oHeaderModel.setProperty("/IsValidated", false);
+                    oHeaderModel.setProperty("/Message", this._getErrorText(oError));
+                    oHeaderModel.setProperty("/MessageType", "Error");
+                    oHeaderModel.setProperty("/ShowMessage", true);
+
+                    this._syncHeaderToRoute();
+
                     MessageBox.error(this._getErrorText(oError));
                 }
             },
@@ -394,148 +455,158 @@ sap.ui.define(
                 this._openMaterialValueHelp();
             },
 
-          _openMaterialValueHelp: function () {
-    var that = this;
+            _openMaterialValueHelp: function () {
+                var that = this;
 
-    if (!this._oMatVHD) {
-        var oFilterBar;
+                if (!this._oMatVHD) {
+                    var oFilterBar;
 
-        var fnDoSearch = function () {
-            var aFilters = [];
-            var aItems = oFilterBar.getFilterGroupItems();
+                    var fnDoSearch = function () {
+                        var aFilters = [];
+                        var aItems = oFilterBar.getFilterGroupItems();
 
-            aItems.forEach(function (oItem) {
-                var sValue = oItem.getControl().getValue();
+                        aItems.forEach(function (oItem) {
+                            var sValue = oItem.getControl().getValue();
 
-                if (sValue) {
-                    aFilters.push(new Filter(
-                        oItem.getName(),
-                        FilterOperator.Contains,
-                        sValue
-                    ));
+                            if (sValue) {
+                                aFilters.push(
+                                    new Filter(
+                                        oItem.getName(),
+                                        FilterOperator.Contains,
+                                        sValue
+                                    )
+                                );
+                            }
+                        });
+
+                        var oBinding = that._oMatTable.getBinding("items");
+
+                        if (oBinding) {
+                            oBinding.filter(aFilters);
+                        }
+                    };
+
+                    oFilterBar = new FilterBar({
+                        showFilterConfiguration: false,
+                        showGoOnFB: true,
+                        filterBarExpanded: true,
+                        useToolbar: true,
+                        search: fnDoSearch,
+                        filterGroupItems: [
+                            new FilterGroupItem({
+                                groupName: "basic",
+                                name: "Product",
+                                label: "Product",
+                                visibleInFilterBar: true,
+                                control: new Input({
+                                    submit: fnDoSearch
+                                })
+                            }),
+                            new FilterGroupItem({
+                                groupName: "basic",
+                                name: "ProductDescription",
+                                label: "Product Description",
+                                visibleInFilterBar: true,
+                                control: new Input({
+                                    submit: fnDoSearch
+                                })
+                            })
+                        ]
+                    });
+
+                    this._oMatTable = new sap.m.Table({
+                        growing: true,
+                        growingThreshold: 1000,
+                        mode: "SingleSelectLeft",
+                        includeItemInSelection: true,
+                        columns: [
+                            new sap.m.Column({
+                                header: new sap.m.Label({ text: "Product" })
+                            }),
+                            new sap.m.Column({
+                                header: new sap.m.Label({ text: "Product Description" })
+                            })
+                        ]
+                    });
+
+                    this._oMatTable.bindItems({
+                        path: "/product_plant_vh",
+                        template: new sap.m.ColumnListItem({
+                            type: "Active",
+                            cells: [
+                                new sap.m.Text({ text: "{Product}" }),
+                                new sap.m.Text({ text: "{ProductDescription}" })
+                            ]
+                        })
+                    });
+
+                    this._oMatTable.attachItemPress(function (oEvent) {
+                        var oItem = oEvent.getParameter("listItem");
+
+                        if (oItem) {
+                            that._oMatTable.setSelectedItem(oItem, true);
+                        }
+                    });
+
+                    this._oMatVHD = new ValueHelpDialog({
+                        title: "Select Product",
+                        supportMultiselect: false,
+                        supportRanges: false,
+                        filterBar: oFilterBar,
+                        stretch: false,
+                        contentWidth: "70%",
+                        contentHeight: "60%",
+
+                        ok: function () {
+                            var oSelectedItem = that._oMatTable.getSelectedItem();
+
+                            if (!oSelectedItem) {
+                                MessageBox.error("Please select one product.");
+                                return;
+                            }
+
+                            var oData = oSelectedItem.getBindingContext().getObject();
+                            var oHeaderModel =
+                                that.getOwnerComponent().getModel("headerModel");
+                            var sTargetProperty =
+                                that._sMaterialTargetProperty || "/Material";
+
+                            if (sTargetProperty === "/CopyMaterial") {
+                                oHeaderModel.setProperty("/CopyMaterial", oData.Product);
+                                oHeaderModel.setProperty("/CopyPlant", oData.Plant);
+                            } else {
+                                oHeaderModel.setProperty("/Material", oData.Product);
+
+                                /*
+                                 * Product value help service has Plant also.
+                                 * If you do not want product VH to fill Plant,
+                                 * remove the below line.
+                                 */
+                                oHeaderModel.setProperty("/Plant", oData.Plant);
+                            }
+
+                            that._sMaterialTargetProperty = "/Material";
+
+                            that.onHeaderFieldChange();
+
+                            that._oMatTable.removeSelections(true);
+                            that._oMatVHD.close();
+                        },
+
+                        cancel: function () {
+                            that._oMatTable.removeSelections(true);
+                            that._sMaterialTargetProperty = "/Material";
+                            that._oMatVHD.close();
+                        }
+                    });
+
+                    this._oMatTable.setModel(this.getOwnerComponent().getModel());
+                    this._oMatVHD.setTable(this._oMatTable);
                 }
-            });
 
-            var oBinding = that._oMatTable.getBinding("items");
-
-            if (oBinding) {
-                oBinding.filter(aFilters);
-            }
-        };
-
-        oFilterBar = new FilterBar({
-            showFilterConfiguration: false,
-            showGoOnFB: true,
-            filterBarExpanded: true,
-            useToolbar: true,
-            search: fnDoSearch,
-            filterGroupItems: [
-                new FilterGroupItem({
-                    groupName: "basic",
-                    name: "Product",
-                    label: "Product",
-                    visibleInFilterBar: true,
-                    control: new Input({
-                        submit: fnDoSearch
-                    })
-                }),
-                new FilterGroupItem({
-                    groupName: "basic",
-                    name: "ProductDescription",
-                    label: "Product Description",
-                    visibleInFilterBar: true,
-                    control: new Input({
-                        submit: fnDoSearch
-                    })
-                })
-            ]
-        });
-
-        this._oMatTable = new sap.m.Table({
-            growing: true,
-            growingThreshold: 1000,
-            mode: "SingleSelectLeft",
-            includeItemInSelection: true,
-            columns: [
-                new sap.m.Column({
-                    header: new sap.m.Label({ text: "Product" })
-                }),
-                new sap.m.Column({
-                    header: new sap.m.Label({ text: "Product Description" })
-                })
-            ]
-        });
-
-        this._oMatTable.bindItems({
-            path: "/product_plant_vh",
-            template: new sap.m.ColumnListItem({
-                type: "Active",
-                cells: [
-                    new sap.m.Text({ text: "{Product}" }),
-                    new sap.m.Text({ text: "{ProductDescription}" })
-                ]
-            })
-        });
-
-        this._oMatTable.attachItemPress(function (oEvent) {
-            var oItem = oEvent.getParameter("listItem");
-
-            if (oItem) {
-                that._oMatTable.setSelectedItem(oItem, true);
-            }
-        });
-
-        this._oMatVHD = new ValueHelpDialog({
-            title: "Select Product",
-            supportMultiselect: false,
-            supportRanges: false,
-            filterBar: oFilterBar,
-            stretch: false,
-            contentWidth: "70%",
-            contentHeight: "60%",
-
-            ok: function () {
-                var oSelectedItem = that._oMatTable.getSelectedItem();
-
-                if (!oSelectedItem) {
-                    MessageBox.error("Please select one product.");
-                    return;
-                }
-
-                var oData = oSelectedItem.getBindingContext().getObject();
-                var oHeaderModel = that.getOwnerComponent().getModel("headerModel");
-                var sTargetProperty = that._sMaterialTargetProperty || "/Material";
-
-                if (sTargetProperty === "/CopyMaterial") {
-                    oHeaderModel.setProperty("/CopyMaterial", oData.Product);
-                    oHeaderModel.setProperty("/CopyPlant", oData.Plant);
-                } else {
-                    oHeaderModel.setProperty("/Material", oData.Product);
-                    oHeaderModel.setProperty("/Plant", oData.Plant);
-                }
-
-                that._sMaterialTargetProperty = "/Material";
-
-                that.onHeaderFieldChange();
-
-                that._oMatTable.removeSelections(true);
-                that._oMatVHD.close();
+                this._oMatTable.removeSelections(true);
+                this._oMatVHD.open();
             },
-
-            cancel: function () {
-                that._oMatTable.removeSelections(true);
-                that._sMaterialTargetProperty = "/Material";
-                that._oMatVHD.close();
-            }
-        });
-
-        this._oMatTable.setModel(this.getOwnerComponent().getModel());
-        this._oMatVHD.setTable(this._oMatTable);
-    }
-
-    this._oMatTable.removeSelections(true);
-    this._oMatVHD.open();
-},
 
             onPlantValueHelp: function () {
                 this._sPlantTargetProperty = "/Plant";
@@ -547,142 +618,147 @@ sap.ui.define(
                 this._openPlantValueHelp();
             },
 
-           _openPlantValueHelp: function () {
-    var that = this;
+            _openPlantValueHelp: function () {
+                var that = this;
 
-    if (!this._oPlantVHD) {
-        var oFilterBar;
+                if (!this._oPlantVHD) {
+                    var oFilterBar;
 
-        var fnDoSearch = function () {
-            var aFilters = [];
-            var aItems = oFilterBar.getFilterGroupItems();
+                    var fnDoSearch = function () {
+                        var aFilters = [];
+                        var aItems = oFilterBar.getFilterGroupItems();
 
-            aItems.forEach(function (oItem) {
-                var sValue = oItem.getControl().getValue();
+                        aItems.forEach(function (oItem) {
+                            var sValue = oItem.getControl().getValue();
 
-                if (sValue) {
-                    aFilters.push(new Filter(
-                        oItem.getName(),
-                        FilterOperator.Contains,
-                        sValue
-                    ));
+                            if (sValue) {
+                                aFilters.push(
+                                    new Filter(
+                                        oItem.getName(),
+                                        FilterOperator.Contains,
+                                        sValue
+                                    )
+                                );
+                            }
+                        });
+
+                        var oBinding = that._oPlantTable.getBinding("items");
+
+                        if (oBinding) {
+                            oBinding.filter(aFilters);
+                        }
+                    };
+
+                    oFilterBar = new FilterBar({
+                        showFilterConfiguration: false,
+                        showGoOnFB: true,
+                        filterBarExpanded: true,
+                        useToolbar: true,
+                        search: fnDoSearch,
+                        filterGroupItems: [
+                            new FilterGroupItem({
+                                groupName: "basic",
+                                name: "Plant",
+                                label: "Plant",
+                                visibleInFilterBar: true,
+                                control: new Input({
+                                    submit: fnDoSearch
+                                })
+                            }),
+                            new FilterGroupItem({
+                                groupName: "basic",
+                                name: "PlantName",
+                                label: "Plant Name",
+                                visibleInFilterBar: true,
+                                control: new Input({
+                                    submit: fnDoSearch
+                                })
+                            })
+                        ]
+                    });
+
+                    this._oPlantTable = new sap.m.Table({
+                        growing: true,
+                        growingThreshold: 500,
+                        mode: "SingleSelectLeft",
+                        includeItemInSelection: true,
+                        columns: [
+                            new sap.m.Column({
+                                header: new sap.m.Label({ text: "Plant" })
+                            }),
+                            new sap.m.Column({
+                                header: new sap.m.Label({ text: "Plant Name" })
+                            })
+                        ]
+                    });
+
+                    this._oPlantTable.bindItems({
+                        path: "/plant_vh",
+                        template: new sap.m.ColumnListItem({
+                            type: "Active",
+                            cells: [
+                                new sap.m.Text({ text: "{Plant}" }),
+                                new sap.m.Text({ text: "{PlantName}" })
+                            ]
+                        })
+                    });
+
+                    this._oPlantTable.attachItemPress(function (oEvent) {
+                        var oItem = oEvent.getParameter("listItem");
+
+                        if (oItem) {
+                            that._oPlantTable.setSelectedItem(oItem, true);
+                        }
+                    });
+
+                    this._oPlantVHD = new ValueHelpDialog({
+                        title: "Select Plant",
+                        supportMultiselect: false,
+                        supportRanges: false,
+                        filterBar: oFilterBar,
+                        stretch: false,
+                        contentWidth: "60%",
+                        contentHeight: "60%",
+
+                        ok: function () {
+                            var oSelectedItem = that._oPlantTable.getSelectedItem();
+
+                            if (!oSelectedItem) {
+                                MessageBox.error("Please select one plant.");
+                                return;
+                            }
+
+                            var oData = oSelectedItem.getBindingContext().getObject();
+                            var sTargetProperty =
+                                that._sPlantTargetProperty || "/Plant";
+
+                            that
+                                .getOwnerComponent()
+                                .getModel("headerModel")
+                                .setProperty(sTargetProperty, oData.Plant);
+
+                            that._sPlantTargetProperty = "/Plant";
+
+                            that.onHeaderFieldChange();
+
+                            that._oPlantTable.removeSelections(true);
+                            that._oPlantVHD.close();
+                        },
+
+                        cancel: function () {
+                            that._oPlantTable.removeSelections(true);
+                            that._sPlantTargetProperty = "/Plant";
+                            that._oPlantVHD.close();
+                        }
+                    });
+
+                    this._oPlantTable.setModel(this.getOwnerComponent().getModel());
+                    this._oPlantVHD.setTable(this._oPlantTable);
                 }
-            });
 
-            var oBinding = that._oPlantTable.getBinding("items");
-
-            if (oBinding) {
-                oBinding.filter(aFilters);
-            }
-        };
-
-        oFilterBar = new FilterBar({
-            showFilterConfiguration: false,
-            showGoOnFB: true,
-            filterBarExpanded: true,
-            useToolbar: true,
-            search: fnDoSearch,
-            filterGroupItems: [
-                new FilterGroupItem({
-                    groupName: "basic",
-                    name: "Plant",
-                    label: "Plant",
-                    visibleInFilterBar: true,
-                    control: new Input({
-                        submit: fnDoSearch
-                    })
-                }),
-                new FilterGroupItem({
-                    groupName: "basic",
-                    name: "PlantName",
-                    label: "Plant Name",
-                    visibleInFilterBar: true,
-                    control: new Input({
-                        submit: fnDoSearch
-                    })
-                })
-            ]
-        });
-
-        this._oPlantTable = new sap.m.Table({
-            growing: true,
-            growingThreshold: 500,
-            mode: "SingleSelectLeft",
-            includeItemInSelection: true,
-            columns: [
-                new sap.m.Column({
-                    header: new sap.m.Label({ text: "Plant" })
-                }),
-                new sap.m.Column({
-                    header: new sap.m.Label({ text: "Plant Name" })
-                })
-            ]
-        });
-
-        this._oPlantTable.bindItems({
-            path: "/plant_vh",
-            template: new sap.m.ColumnListItem({
-                type: "Active",
-                cells: [
-                    new sap.m.Text({ text: "{Plant}" }),
-                    new sap.m.Text({ text: "{PlantName}" })
-                ]
-            })
-        });
-
-        this._oPlantTable.attachItemPress(function (oEvent) {
-            var oItem = oEvent.getParameter("listItem");
-
-            if (oItem) {
-                that._oPlantTable.setSelectedItem(oItem, true);
-            }
-        });
-
-        this._oPlantVHD = new ValueHelpDialog({
-            title: "Select Plant",
-            supportMultiselect: false,
-            supportRanges: false,
-            filterBar: oFilterBar,
-            stretch: false,
-            contentWidth: "60%",
-            contentHeight: "60%",
-
-            ok: function () {
-                var oSelectedItem = that._oPlantTable.getSelectedItem();
-
-                if (!oSelectedItem) {
-                    MessageBox.error("Please select one plant.");
-                    return;
-                }
-
-                var oData = oSelectedItem.getBindingContext().getObject();
-                var sTargetProperty = that._sPlantTargetProperty || "/Plant";
-
-                that.getOwnerComponent().getModel("headerModel")
-                    .setProperty(sTargetProperty, oData.Plant);
-
-                that._sPlantTargetProperty = "/Plant";
-
-                that.onHeaderFieldChange();
-
-                that._oPlantTable.removeSelections(true);
-                that._oPlantVHD.close();
+                this._oPlantTable.removeSelections(true);
+                this._oPlantVHD.open();
             },
-
-            cancel: function () {
-                that._oPlantTable.removeSelections(true);
-                that._sPlantTargetProperty = "/Plant";
-                that._oPlantVHD.close();
-            }
-        });
-
-        this._oPlantTable.setModel(this.getOwnerComponent().getModel());
-        this._oPlantVHD.setTable(this._oPlantTable);
-    }
-
-    this._oPlantTable.removeSelections(true);
-    this._oPlantVHD.open();
-},
 
             _postAction: function (sRelativePath, oPayload) {
                 var oModel = this.getOwnerComponent().getModel();
@@ -756,7 +832,10 @@ sap.ui.define(
                                 return oParsed.error.message;
                             }
 
-                            if (oParsed.error.message && oParsed.error.message.value) {
+                            if (
+                                oParsed.error.message &&
+                                oParsed.error.message.value
+                            ) {
                                 return oParsed.error.message.value;
                             }
                         }

@@ -194,12 +194,9 @@ sap.ui.define([
 
                 var oResponse = await this._createBom(oPayload);
 
-
                 this._handleCreateResponse(oResponse);
             } catch (oError) {
                 var sErrorText = this._getErrorText(oError);
-
-            
 
                 oResultModel.setProperty("/CanSave", true);
                 oResultModel.setProperty("/Message", sErrorText);
@@ -295,7 +292,7 @@ sap.ui.define([
                 if (!oItem.uom) {
                     return {
                         valid: false,
-                        message: sPrefix + "UOM is required."
+                        message: sPrefix + "UOM is required. Please select or enter a valid component."
                     };
                 }
             }
@@ -548,18 +545,85 @@ sap.ui.define([
             });
         },
 
-        onUomValueHelp: function (oEvent) {
-            var that = this;
+        onComponentChange: async function (oEvent) {
             var oInput = oEvent.getSource();
+            var oContext = oInput.getBindingContext("itemModel");
 
-            this._oCurrentContext = oInput.getBindingContext("itemModel");
-
-            if (!this._oCurrentContext) {
+            if (!oContext) {
                 MessageBox.error("Could not determine selected item row.");
                 return;
             }
 
-            if (!this._oUomVHD) {
+            var sComponent = (oInput.getValue() || "").trim();
+
+            if (!sComponent) {
+                oContext.getModel().setProperty(oContext.getPath() + "/description", "");
+                oContext.getModel().setProperty(oContext.getPath() + "/uom", "");
+                return;
+            }
+
+            await this._fillComponentDetails(oContext, sComponent);
+        },
+
+        _fillComponentDetails: function (oContext, sComponent) {
+            var oODataModel = this.getOwnerComponent().getModel();
+            var oItemModel = oContext.getModel();
+            var sPath = oContext.getPath();
+
+            return new Promise(function (resolve) {
+                var oListBinding = oODataModel.bindList(
+                    "/component_vh",
+                    undefined,
+                    undefined,
+                    [
+                        new Filter("component", FilterOperator.EQ, sComponent)
+                    ]
+                );
+
+                oListBinding.requestContexts(0, 1).then(function (aContexts) {
+                    if (!aContexts.length) {
+                        oItemModel.setProperty(sPath + "/description", "");
+                        oItemModel.setProperty(sPath + "/uom", "");
+
+                        MessageBox.warning("Component not found in value help.");
+                        resolve();
+                        return;
+                    }
+
+                    var oData = aContexts[0].getObject();
+
+                    oItemModel.setProperty(sPath + "/component", oData.component || sComponent);
+                    oItemModel.setProperty(sPath + "/description", oData.ProductDescription || "");
+                    oItemModel.setProperty(sPath + "/uom", oData.uom || "");
+
+                    resolve();
+                }).catch(function () {
+                    oItemModel.setProperty(sPath + "/description", "");
+                    oItemModel.setProperty(sPath + "/uom", "");
+
+                    MessageBox.error("Could not fetch component details.");
+                    resolve();
+                });
+            });
+        },
+
+        onComponentValueHelp: function (oEvent) {
+            var oInput = oEvent.getSource();
+
+            this._oCurrentComponentContext = oInput.getBindingContext("itemModel");
+
+            if (!this._oCurrentComponentContext) {
+                MessageBox.error("Could not determine selected item row.");
+                return;
+            }
+
+            this._openComponentValueHelp();
+        },
+
+        _openComponentValueHelp: function () {
+            var that = this;
+
+            if (!this._oComponentVHD) {
                 var oFilterBar;
 
                 var fnDoSearch = function () {
@@ -578,19 +642,24 @@ sap.ui.define([
                         }
                     });
 
-                    that._oUomTable.getBinding("items").filter(aFilters);
+                    var oBinding = that._oComponentTable.getBinding("items");
+
+                    if (oBinding) {
+                        oBinding.filter(aFilters);
+                    }
                 };
 
                 oFilterBar = new FilterBar({
                     showFilterConfiguration: false,
-                    showGoOnFB: false,
+                    showGoOnFB: true,
                     filterBarExpanded: true,
-                    useToolbar: false,
+                    useToolbar: true,
+                    search: fnDoSearch,
                     filterGroupItems: [
                         new FilterGroupItem({
                             groupName: "basic",
-                            name: "UnitOfMeasure",
-                            label: "UoM",
+                            name: "component",
+                            label: "Component",
                             visibleInFilterBar: true,
                             control: new Input({
                                 submit: fnDoSearch
@@ -598,7 +667,7 @@ sap.ui.define([
                         }),
                         new FilterGroupItem({
                             groupName: "basic",
-                            name: "UnitOfMeasure_Text",
+                            name: "ProductDescription",
                             label: "Description",
                             visibleInFilterBar: true,
                             control: new Input({
@@ -608,72 +677,101 @@ sap.ui.define([
                     ]
                 });
 
-                this._oUomTable = new sap.m.Table({
+                this._oComponentTable = new sap.m.Table({
                     growing: true,
-                    growingThreshold: 500,
-                    mode: "None",
+                    growingThreshold: 1000,
+                    mode: "SingleSelectLeft",
+                    includeItemInSelection: true,
                     columns: [
                         new sap.m.Column({
                             header: new sap.m.Label({
-                                text: "UoM"
+                                text: "Component"
                             })
                         }),
                         new sap.m.Column({
                             header: new sap.m.Label({
                                 text: "Description"
                             })
+                        }),
+                        new sap.m.Column({
+                            header: new sap.m.Label({
+                                text: "UOM"
+                            })
                         })
                     ]
                 });
 
-                this._oUomTable.bindItems({
-                    path: "/I_UnitOfMeasure",
+                this._oComponentTable.bindItems({
+                    path: "/component_vh",
                     template: new sap.m.ColumnListItem({
                         type: "Active",
                         cells: [
                             new sap.m.Text({
-                                text: "{UnitOfMeasure}"
+                                text: "{component}"
                             }),
                             new sap.m.Text({
-                                text: "{UnitOfMeasure_Text}"
+                                text: "{ProductDescription}"
+                            }),
+                            new sap.m.Text({
+                                text: "{uom}"
                             })
                         ]
                     })
                 });
 
-                this._oUomTable.attachItemPress(function (oSelectEvent) {
-                    var oData = oSelectEvent.getParameter("listItem").getBindingContext().getObject();
+                this._oComponentTable.attachItemPress(function (oEvent) {
+                    var oItem = oEvent.getParameter("listItem");
 
-                    that._oCurrentContext.getModel().setProperty(
-                        that._oCurrentContext.getPath() + "/uom",
-                        oData.UnitOfMeasure
-                    );
-
-                    that._oUomVHD.close();
-                });
-
-                this._oUomVHD = new ValueHelpDialog({
-                    title: "Select UoM",
-                    supportMultiselect: false,
-                    filterBar: oFilterBar,
-                    stretch: false,
-                    contentWidth: "60%",
-                    contentHeight: "60%",
-
-                    ok: function () {
-                        that._oUomVHD.close();
-                    },
-
-                    cancel: function () {
-                        that._oUomVHD.close();
+                    if (oItem) {
+                        that._oComponentTable.setSelectedItem(oItem, true);
                     }
                 });
 
-                this._oUomTable.setModel(this.getOwnerComponent().getModel());
-                this._oUomVHD.setTable(this._oUomTable);
+                this._oComponentVHD = new ValueHelpDialog({
+                    title: "Select Component",
+                    supportMultiselect: false,
+                    supportRanges: false,
+                    filterBar: oFilterBar,
+                    stretch: false,
+                    contentWidth: "70%",
+                    contentHeight: "60%",
+
+                    ok: function () {
+                        var oSelectedItem = that._oComponentTable.getSelectedItem();
+
+                        if (!oSelectedItem) {
+                            MessageBox.error("Please select one component.");
+                            return;
+                        }
+
+                        var oData = oSelectedItem.getBindingContext().getObject();
+                        var oContext = that._oCurrentComponentContext;
+
+                        if (!oContext) {
+                            MessageBox.error("Could not determine selected item row.");
+                            return;
+                        }
+
+                        oContext.getModel().setProperty(oContext.getPath() + "/component", oData.component || "");
+                        oContext.getModel().setProperty(oContext.getPath() + "/description", oData.ProductDescription || "");
+                        oContext.getModel().setProperty(oContext.getPath() + "/uom", oData.uom || "");
+
+                        that._oComponentTable.removeSelections(true);
+                        that._oComponentVHD.close();
+                    },
+
+                    cancel: function () {
+                        that._oComponentTable.removeSelections(true);
+                        that._oComponentVHD.close();
+                    }
+                });
+
+                this._oComponentTable.setModel(this.getOwnerComponent().getModel());
+                this._oComponentVHD.setTable(this._oComponentTable);
             }
 
-            this._oUomVHD.open();
+            this._oComponentTable.removeSelections(true);
+            this._oComponentVHD.open();
         },
 
         _formatItemNo: function (vItem) {
