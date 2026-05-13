@@ -1,4 +1,5 @@
-<mvc:View controllerName="zppbomautomation.controller.BOMItem"
+<mvc:View
+    controllerName="zppbomautomation.controller.BOMItem"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:f="sap.ui.layout.form"
@@ -122,12 +123,14 @@
                         </Column>
 
                         <Column
+                            width="14rem"
                             minScreenWidth="Tablet"
                             demandPopin="true">
                             <Text text="Component" />
                         </Column>
 
                         <Column
+                            width="24rem"
                             minScreenWidth="Tablet"
                             demandPopin="true">
                             <Text text="Description" />
@@ -149,6 +152,7 @@
                         </Column>
 
                         <Column
+                            width="10rem"
                             minScreenWidth="Desktop"
                             demandPopin="true">
                             <Text text="Sort String" />
@@ -161,12 +165,6 @@
                             demandPopin="true">
                             <Text text="Category" />
                         </Column>
-
-                        <Column
-                            minScreenWidth="Desktop"
-                            demandPopin="true">
-                            <Text text="Item Text" />
-                        </Column>
                     </columns>
 
                     <items>
@@ -177,37 +175,47 @@
                                 <Input
                                     value="{itemModel>component}"
                                     showValueHelp="true"
+                                    valueHelpOnly="false"
                                     valueHelpRequest=".onComponentValueHelp"
                                     change=".onComponentChange"
-                                    editable="{resultModel>/Editable}" />
+                                    editable="{resultModel>/Editable}"
+                                    maxLength="40"
+                                    placeholder="Enter Component" />
 
-                                <Input
+                                <TextArea
                                     value="{itemModel>description}"
-                                    editable="false" />
+                                    editable="false"
+                                    growing="true"
+                                    growingMaxLines="10"
+                                    rows="1"
+                                    width="100%" />
 
                                 <Input
                                     value="{itemModel>quantity}"
                                     textAlign="End"
-                                    type="Number"
-                                    editable="{resultModel>/Editable}" />
+                                    type="Text"
+                                    liveChange=".onQuantityLiveChange"
+                                    change=".onQuantityChange"
+                                    editable="{resultModel>/Editable}"
+                                    placeholder="Enter Quantity" />
 
                                 <Input
                                     value="{itemModel>uom}"
                                     width="5rem"
-                                    editable="false" />
+                                    editable="{resultModel>/Editable}"
+                                    placeholder="UoM" />
 
                                 <Input
                                     value="{itemModel>sortString}"
-                                    editable="{resultModel>/Editable}" />
+                                    editable="{resultModel>/Editable}"
+                                    placeholder="Sort String" />
 
                                 <Input
                                     value="{itemModel>category}"
                                     width="3rem"
-                                    editable="{resultModel>/Editable}" />
-
-                                <Input
-                                    value="{itemModel>itemText}"
-                                    editable="{resultModel>/Editable}" />
+                                    editable="false"
+                                    maxLength="1"
+                                    placeholder="Category" />
                             </cells>
                         </ColumnListItem>
                     </items>

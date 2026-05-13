@@ -1,23 +1,44 @@
-<mvc:View controllerName="zppbomautomation.controller.View1"
+<mvc:View
+    controllerName="zppbomautomation.controller.View1"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:f="sap.ui.layout.form"
-    xmlns:core="sap.ui.core" displayBlock="true">
+    xmlns:core="sap.ui.core"
+    displayBlock="true">
 
-    <Page id="pageBOMCreation" title="Material BOM Creation" showNavButton="false" backgroundDesign="Standard">
+    <Page
+        id="pageBOMCreation"
+        title="Material BOM Creation"
+        showNavButton="false"
+        backgroundDesign="Standard">
 
         <customHeader>
             <Bar>
                 <contentLeft>
-                    <Title text="Material BOM Creation" level="H2" class="sapUiSmallMarginBegin"/>
+                    <Title
+                        text="Material BOM Creation"
+                        level="H2"
+                        class="sapUiSmallMarginBegin" />
                 </contentLeft>
 
                 <contentRight>
-                    <Button icon="sap-icon://validate" tooltip="Validate Material" type="Transparent" press=".onValidateMaterial"/>
+                    <Button
+                        icon="sap-icon://validate"
+                        tooltip="Validate Material"
+                        type="Transparent"
+                        press=".onValidateMaterial" />
 
-                    <Button icon="sap-icon://action" tooltip="Continue" type="Emphasized" press=".onContinue"/>
+                    <Button
+                        icon="sap-icon://action"
+                        tooltip="Continue"
+                        type="Emphasized"
+                        press=".onContinue" />
 
-                    <Button icon="sap-icon://copy" tooltip="Copy Existing BOM" class="sapUiSmallMarginEnd"/>
+                    <Button
+                        icon="sap-icon://copy"
+                        tooltip="Copy Existing BOM"
+                        type="Transparent"
+                        class="sapUiSmallMarginEnd" />
                 </contentRight>
             </Bar>
         </customHeader>
@@ -25,47 +46,176 @@
         <content>
             <VBox class="sapUiResponsiveContentPadding">
 
-                <MessageStrip id="msgStrip" text="{headerModel>/Message}" type="{headerModel>/MessageType}" showIcon="true" visible="{headerModel>/ShowMessage}" class="sapUiSmallMarginBottom"/>
+                <MessageStrip
+                    id="msgStrip"
+                    text="{headerModel>/Message}"
+                    type="{headerModel>/MessageType}"
+                    showIcon="true"
+                    visible="{headerModel>/ShowMessage}"
+                    class="sapUiSmallMarginBottom" />
 
-                <f:SimpleForm id="inputForm" title="Input Screen" editable="true" layout="ResponsiveGridLayout" labelSpanXL="3" labelSpanL="3" labelSpanM="4" labelSpanS="12" adjustLabelSpan="false" emptySpanXL="6" emptySpanL="5" emptySpanM="2" emptySpanS="0" columnsXL="1" columnsL="1" columnsM="1" singleContainerFullSize="false">
+                <f:SimpleForm
+                    id="inputForm"
+                    title="Input Screen"
+                    editable="true"
+                    layout="ResponsiveGridLayout"
+                    labelSpanXL="3"
+                    labelSpanL="3"
+                    labelSpanM="4"
+                    labelSpanS="12"
+                    adjustLabelSpan="false"
+                    emptySpanXL="6"
+                    emptySpanL="5"
+                    emptySpanM="2"
+                    emptySpanS="0"
+                    columnsXL="1"
+                    columnsL="1"
+                    columnsM="1"
+                    singleContainerFullSize="false">
 
                     <f:content>
-                        <Label text="Material" required="true"/>
-                        <Input id="inpMaterial" value="{headerModel>/Material}" showValueHelp="true" valueHelpRequest=".onMaterialValueHelp" liveChange=".onHeaderFieldChange"/>
+                        <Label
+                            text="Material"
+                            required="true" />
 
-                        <Label text="Plant" required="true"/>
-                        <Input id="inpPlant" value="{headerModel>/Plant}" showValueHelp="true" valueHelpRequest=".onPlantValueHelp" liveChange=".onHeaderFieldChange"/>
+                        <Input
+                            id="inpMaterial"
+                            value="{headerModel>/Material}"
+                            showValueHelp="true"
+                         
+                            valueHelpRequest=".onMaterialValueHelp"
+                            liveChange=".onHeaderFieldChange"
+                            maxLength="40"
+                            placeholder="Enter Material" />
 
-                        <Label text="BOM Usage" required="true"/>
-                        <Input id="inpBomUsage" value="{headerModel>/BomUsage}" showValueHelp="true" valueHelpRequest=".onBomUsageValueHelp" liveChange=".onHeaderFieldChange"/>
+                        <Label
+                            text="Plant"
+                            required="true" />
 
-                        <Label text="Alternative BOM" required="true"/>
-                        <Input value="{headerModel>/AltBom}" editable="false" enabled="true" maxLength="2" placeholder="Auto-filled after validation" />
+                        <Input
+                            id="inpPlant"
+                            value="{headerModel>/Plant}"
+                            showValueHelp="true"
+                         
+                            valueHelpRequest=".onPlantValueHelp"
+                            liveChange=".onHeaderFieldChange"
+                            maxLength="4"
+                            placeholder="Enter Plant" />
 
-                        <Label text="Base Quantity" required="true"/>
-                        <Input id="inpBaseQty" value="{headerModel>/BaseQty}" type="Number" liveChange=".onHeaderFieldChange"/>
+                        <Label
+                            text="BOM Usage"
+                            required="true" />
 
-                        <Label text="Valid From"/>
-                        <DatePicker id="dpValidFrom" value="{headerModel>/ValidFrom}" valueFormat="yyyy-MM-dd" displayFormat="dd/MM/yyyy" change=".onHeaderFieldChange"/>
+                        <Input
+                            id="inpBomUsage"
+                            value="{headerModel>/BomUsage}"
+                            showValueHelp="true"
+                         
+                            valueHelpRequest=".onBomUsageValueHelp"
+                            liveChange=".onHeaderFieldChange"
+                            maxLength="1"
+                            placeholder="Enter BOM Usage" />
 
-                        <Label text="Base UOM"/>
-                        <Input id="inpBaseUom" value="{headerModel>/BaseUom}" editable="false"/>
+                        <Label
+                            text="Alternative BOM"
+                            required="true" />
+
+                        <Input
+                            id="inpAltBom"
+                            value="{headerModel>/AltBom}"
+                            editable="false"
+                            maxLength="2"
+                            placeholder="Auto-filled after validation" />
+
+                        <Label
+                            text="Base Quantity"
+                            required="true" />
+
+                        <Input
+                            id="inpBaseQty"
+                            value="{headerModel>/BaseQty}"
+                            type="Number"
+                            liveChange=".onHeaderFieldChange"
+                            placeholder="Enter Base Quantity" />
+
+                        <Label text="Valid From" />
+
+                        <DatePicker
+                            id="dpValidFrom"
+                            value="{headerModel>/ValidFrom}"
+                            valueFormat="yyyy-MM-dd"
+                            displayFormat="dd/MM/yyyy"
+                            change=".onHeaderFieldChange" />
+
+                        <Label text="Base UOM" />
+
+                        <Input
+                            id="inpBaseUom"
+                            value="{headerModel>/BaseUom}"
+                            editable="false"
+                            placeholder="Auto-filled after validation" />
                     </f:content>
                 </f:SimpleForm>
 
-                <f:SimpleForm id="copyFromForm" title="Copy From" editable="true" layout="ResponsiveGridLayout" labelSpanXL="3" labelSpanL="3" labelSpanM="4" labelSpanS="12" adjustLabelSpan="false" emptySpanXL="6" emptySpanL="5" emptySpanM="2" emptySpanS="0" columnsXL="1" columnsL="1" columnsM="1" singleContainerFullSize="false">
+                <f:SimpleForm
+                    id="copyFromForm"
+                    title="Copy From"
+                    editable="true"
+                    layout="ResponsiveGridLayout"
+                    labelSpanXL="3"
+                    labelSpanL="3"
+                    labelSpanM="4"
+                    labelSpanS="12"
+                    adjustLabelSpan="false"
+                    emptySpanXL="6"
+                    emptySpanL="5"
+                    emptySpanM="2"
+                    emptySpanS="0"
+                    columnsXL="1"
+                    columnsL="1"
+                    columnsM="1"
+                    singleContainerFullSize="false">
 
                     <f:content>
-                        <Label text="Material"/>
-                        <Input id="inpCopyMaterial" value="{headerModel>/CopyMaterial}" showValueHelp="true" valueHelpRequest=".onCopyMaterialValueHelp" liveChange=".onHeaderFieldChange"/>
+                        <Label text="Material" />
 
-                        <Label text="Plant"/>
-                        <Input id="inpCopyPlant" value="{headerModel>/CopyPlant}" showValueHelp="true" valueHelpRequest=".onCopyPlantValueHelp" liveChange=".onHeaderFieldChange"/>
+                        <Input
+                            id="inpCopyMaterial"
+                            value="{headerModel>/CopyMaterial}"
+                            showValueHelp="true"
+                         
+                            valueHelpRequest=".onCopyMaterialValueHelp"
+                            liveChange=".onHeaderFieldChange"
+                            maxLength="40"
+                            placeholder="Enter Copy Material" />
 
-                        <Label text="Alternative BOM"/>
+                        <Label text="Plant" />
+
+                        <Input
+                            id="inpCopyPlant"
+                            value="{headerModel>/CopyPlant}"
+                            showValueHelp="true"
+                         
+                            valueHelpRequest=".onCopyPlantValueHelp"
+                            liveChange=".onHeaderFieldChange"
+                            maxLength="4"
+                            placeholder="Enter Copy Plant" />
+
+                        <Label text="Alternative BOM" />
+
                         <HBox alignItems="Center">
-                            <Input id="inpCopyAltBom" value="{headerModel>/CopyAltBom}" liveChange=".onHeaderFieldChange"/>
-                            <Button icon="sap-icon://arrow-right" tooltip="Fetch Existing BOM" class="sapUiTinyMarginBegin"/>
+                            <Input
+                                id="inpCopyAltBom"
+                                value="{headerModel>/CopyAltBom}"
+                                liveChange=".onHeaderFieldChange"
+                                maxLength="2"
+                                placeholder="Enter Copy Alt BOM" />
+
+                            <Button
+                                icon="sap-icon://arrow-right"
+                                tooltip="Fetch Existing BOM"
+                                type="Transparent"
+                                class="sapUiTinyMarginBegin" />
                         </HBox>
                     </f:content>
                 </f:SimpleForm>
@@ -75,13 +225,21 @@
 
         <footer>
             <OverflowToolbar>
-                <ToolbarSpacer/>
+                <ToolbarSpacer />
 
-                <Button text="Validate" icon="sap-icon://validate" press=".onValidateMaterial"/>
+                <Button
+                    text="Validate"
+                    icon="sap-icon://validate"
+                    press=".onValidateMaterial" />
 
-                <Button text="Continue" type="Emphasized" press=".onContinue"/>
+                <Button
+                    text="Continue"
+                    type="Emphasized"
+                    press=".onContinue" />
 
-                <Button text="Cancel" press=".onCancel"/>
+                <Button
+                    text="Cancel"
+                    press=".onCancel" />
             </OverflowToolbar>
         </footer>
     </Page>
