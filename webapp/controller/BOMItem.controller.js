@@ -7,7 +7,6 @@ sap.ui.define(
     "sap/ui/core/routing/History",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
-    "sap/ui/thirdparty/jquery",
     "sap/ui/export/Spreadsheet",
     "sap/ui/model/json/JSONModel",
     "sap/ui/comp/valuehelpdialog/ValueHelpDialog",
