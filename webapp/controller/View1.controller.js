@@ -253,7 +253,9 @@ sap.ui.define(
         }
 
         if (!oHeader.IsValidated) {
-          MessageBox.error("Please validate Material and Plant before continuing.");
+          MessageBox.error(
+            "Please validate Material and Plant before continuing."
+          );
           return;
         }
 
@@ -264,7 +266,11 @@ sap.ui.define(
 
         try {
           if (oHeader.CopyMaterial || oHeader.CopyPlant || oHeader.CopyAltBom) {
-            if (!oHeader.CopyMaterial || !oHeader.CopyPlant || !oHeader.CopyAltBom) {
+            if (
+              !oHeader.CopyMaterial ||
+              !oHeader.CopyPlant ||
+              !oHeader.CopyAltBom
+            ) {
               MessageBox.error(
                 "Please fill Copy Material, Copy Plant and Copy Alternate BOM, or keep all Copy From fields blank."
               );
@@ -478,7 +484,9 @@ sap.ui.define(
       onLoadCopyFromBomItems: function () {
         this._loadCopyFromAlternateBomItems(true)
           .then(function (aItems) {
-            MessageToast.show(aItems.length + " BOM item(s) copied successfully.");
+            MessageToast.show(
+              aItems.length + " BOM item(s) copied successfully."
+            );
           })
           .catch(
             function (oError) {
@@ -504,46 +512,80 @@ sap.ui.define(
 
         var oHeader = oHeaderModel.getData();
 
-        if (!oHeader.CopyMaterial || !oHeader.CopyPlant || !oHeader.CopyAltBom) {
+        if (
+          !oHeader.CopyMaterial ||
+          !oHeader.CopyPlant ||
+          !oHeader.CopyAltBom
+        ) {
           return Promise.reject({
-            message: "Please enter Copy Material, Copy Plant and Copy Alternate BOM."
+            message:
+              "Please enter Copy Material, Copy Plant and Copy Alternate BOM."
           });
         }
 
         oHeaderModel.setProperty("/BomUsage", "1");
 
-        var oPayload = {
-          Material: oHeader.CopyMaterial,
-          Plant: oHeader.CopyPlant,
-          BomUsage: "1",
-          BillOfMaterialVariant: oHeader.CopyAltBom
-        };
+        /*
+         * Important:
+         * Resolve Copy Material here also.
+         * This fixes the casing issue when user types material manually
+         * and directly clicks Load/Continue without leaving the field.
+         */
+        return this._resolveMaterialFromValueHelp(oHeader.CopyMaterial)
+          .then(
+            function (oMatchedMaterial) {
+              if (!oMatchedMaterial) {
+                return Promise.reject({
+                  message:
+                    "Copy Material does not exist. Please enter or select a valid material."
+                });
+              }
 
-        return this._postAction(
-          "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.GetAlternateBOMItems",
-          oPayload
-        ).then(
-          function (oResponse) {
-            var aItems = this._convertAlternateBomItemsToRows(oResponse);
+              oHeaderModel.setProperty(
+                "/CopyMaterial",
+                oMatchedMaterial.Product
+              );
+              oHeaderModel.setProperty("/BomUsage", "1");
 
-            if (!aItems.length) {
-              oItemModel.setProperty("/items", []);
+              var oPayload = {
+                Material: oMatchedMaterial.Product,
+                Plant: String(oHeader.CopyPlant || "").trim(),
+                BomUsage: "1",
+                BillOfMaterialVariant: String(oHeader.CopyAltBom || "").trim()
+              };
 
-              return Promise.reject({
-                message: "No BOM items found for the selected Copy From BOM."
-              });
-            }
+              return this._postAction(
+                "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.GetAlternateBOMItems",
+                oPayload
+              );
+            }.bind(this)
+          )
+          .then(
+            function (oResponse) {
+              var aItems = this._convertAlternateBomItemsToRows(oResponse);
 
-            oItemModel.setProperty("/items", aItems);
-            oItemModel.refresh(true);
+              if (!aItems.length) {
+                oItemModel.setProperty("/items", []);
 
-            if (bShowSuccessMessage) {
-              MessageToast.show(aItems.length + " BOM item(s) copied successfully.");
-            }
+                return Promise.reject({
+                  message: "No BOM items found for the selected Copy From BOM."
+                });
+              }
 
-            return aItems;
-          }.bind(this)
-        );
+              oItemModel.setProperty("/items", aItems);
+              oItemModel.refresh(true);
+
+              this._syncHeaderToRoute();
+
+              if (bShowSuccessMessage) {
+                MessageToast.show(
+                  aItems.length + " BOM item(s) copied successfully."
+                );
+              }
+
+              return aItems;
+            }.bind(this)
+          );
       },
 
       _convertAlternateBomItemsToRows: function (oResponse) {

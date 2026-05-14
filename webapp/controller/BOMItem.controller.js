@@ -75,7 +75,7 @@ sap.ui.define(
         this.getView().setModel(oItemModel, "itemModel");
       },
 
-      _onRouteMatched: function () {
+      _onRouteMatched: async function () {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
         if (!oHeaderModel) {
@@ -92,7 +92,10 @@ sap.ui.define(
 
         if (aItems.length === 0) {
           this.onAddRow();
+          return;
         }
+
+        await this._fillCopiedAlternateBomDetails();
       },
 
       _resetResultModel: function () {
@@ -311,9 +314,10 @@ sap.ui.define(
 
           oItem.component = oCheckResult.component || sComponent;
           oItem.description = oCheckResult.description || "";
-          oItem.uom = oCheckResult.uom || oItem.uom || "";
+          oItem.uom = oCheckResult.uom || "";
         }
 
+        oItemModel.setProperty("/items", aItems);
         oItemModel.refresh(true);
 
         return {
@@ -706,36 +710,107 @@ sap.ui.define(
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
         var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
         var sComponent = (oInput.getValue() || "").trim().toUpperCase();
+        var oItemModel = oContext.getModel();
+        var sPath = oContext.getPath();
 
         if (!sComponent) {
-          oContext.getModel().setProperty(oContext.getPath() + "/component", "");
-          oContext
-            .getModel()
-            .setProperty(oContext.getPath() + "/description", "");
-          oContext.getModel().setProperty(oContext.getPath() + "/uom", "");
+          oItemModel.setProperty(sPath + "/component", "");
+          oItemModel.setProperty(sPath + "/description", "");
+          oItemModel.setProperty(sPath + "/uom", "");
           return;
         }
 
         oInput.setValue(sComponent);
 
+        oItemModel.setProperty(sPath + "/component", sComponent);
+        oItemModel.setProperty(sPath + "/description", "");
+        oItemModel.setProperty(sPath + "/uom", "");
+
         if (!sPlant) {
           MessageBox.warning("Please select Plant first.");
-
-          oContext
-            .getModel()
-            .setProperty(oContext.getPath() + "/description", "");
-          oContext.getModel().setProperty(oContext.getPath() + "/uom", "");
-
           return;
         }
 
         await this._fillComponentDetails(oContext, sComponent, sPlant);
       },
 
+      _getComponentUom: function (oData) {
+        return (
+          oData.uom ||
+          oData.Uom ||
+          oData.UOM ||
+          oData.BaseUnit ||
+          oData.BaseUom ||
+          oData.BillOfMaterialItemUnit ||
+          oData.BillOfMaterialItemUnit_Text ||
+          ""
+        );
+      },
+
+      _getComponentDescription: function (oData) {
+        return (
+          oData.ProductDescription ||
+          oData.productDescription ||
+          oData.Description ||
+          oData.description ||
+          oData.MaterialDescription ||
+          ""
+        );
+      },
+
+      _fillCopiedAlternateBomDetails: async function () {
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+        var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
+
+        if (!sPlant || !aItems.length) {
+          return;
+        }
+
+        for (var i = 0; i < aItems.length; i++) {
+          var oItem = aItems[i];
+          var sComponent = String(oItem.component || "").trim().toUpperCase();
+
+          if (!sComponent) {
+            continue;
+          }
+
+          oItem.component = sComponent;
+
+          if (oItem.description && oItem.uom) {
+            continue;
+          }
+
+          oItem.description = "";
+          oItem.uom = "";
+
+          var oResult = await this._checkComponentPlantExtension(
+            sComponent,
+            sPlant
+          );
+
+          if (oResult.valid) {
+            oItem.component = oResult.component || sComponent;
+            oItem.description = oResult.description || "";
+            oItem.uom = oResult.uom || "";
+          }
+        }
+
+        oItemModel.setProperty("/items", aItems);
+        oItemModel.refresh(true);
+      },
+
       _fillComponentDetails: function (oContext, sComponent, sPlant) {
+        var that = this;
         var oODataModel = this.getOwnerComponent().getModel();
         var oItemModel = oContext.getModel();
         var sPath = oContext.getPath();
+
+        oItemModel.setProperty(sPath + "/component", sComponent);
+        oItemModel.setProperty(sPath + "/description", "");
+        oItemModel.setProperty(sPath + "/uom", "");
 
         return new Promise(function (resolve) {
           var oListBinding = oODataModel.bindList(
@@ -779,10 +854,10 @@ sap.ui.define(
 
               oItemModel.setProperty(
                 sPath + "/description",
-                oData.ProductDescription || ""
+                that._getComponentDescription(oData)
               );
 
-              oItemModel.setProperty(sPath + "/uom", oData.uom || "");
+              oItemModel.setProperty(sPath + "/uom", that._getComponentUom(oData));
 
               resolve(true);
             })
@@ -797,6 +872,7 @@ sap.ui.define(
       },
 
       _checkComponentPlantExtension: function (sComponent, sPlant) {
+        var that = this;
         var oODataModel = this.getOwnerComponent().getModel();
 
         return new Promise(function (resolve) {
@@ -832,8 +908,8 @@ sap.ui.define(
               resolve({
                 valid: true,
                 component: oData.component || sComponent,
-                description: oData.ProductDescription || "",
-                uom: oData.uom || ""
+                description: that._getComponentDescription(oData),
+                uom: that._getComponentUom(oData)
               });
             })
             .catch(function () {
@@ -1084,10 +1160,13 @@ sap.ui.define(
 
                   oItemModel.setProperty(
                     sPath + "/description",
-                    oData.ProductDescription || ""
+                    that._getComponentDescription(oData)
                   );
 
-                  oItemModel.setProperty(sPath + "/uom", oData.uom || "");
+                  oItemModel.setProperty(
+                    sPath + "/uom",
+                    that._getComponentUom(oData)
+                  );
 
                   that._clearComponentValueHelpSearch();
                   that._oComponentVHD.close();

@@ -4,23 +4,23 @@
     xmlns="sap.m"
     xmlns:f="sap.ui.layout.form"
     xmlns:core="sap.ui.core"
-    displayBlock="true">
-
+    displayBlock="true"
+>
     <Page
         id="pageBOMItems"
         title="Create Material BOM"
         showNavButton="true"
-        navButtonPress=".onNavBack">
-
+        navButtonPress=".onNavBack"
+    >
         <content>
             <VBox class="sapUiResponsiveContentPadding">
-
                 <MessageStrip
                     text="{resultModel>/Message}"
                     type="{resultModel>/MessageType}"
                     showIcon="true"
                     visible="{resultModel>/ShowMessage}"
-                    class="sapUiSmallMarginBottom" />
+                    class="sapUiSmallMarginBottom"
+                />
 
                 <f:SimpleForm
                     id="headerForm"
@@ -33,8 +33,8 @@
                     labelSpanS="12"
                     columnsXL="2"
                     columnsL="2"
-                    columnsM="1">
-
+                    columnsM="1"
+                >
                     <f:content>
                         <Label text="Material" />
                         <Text text="{headerModel>/Material}" />
@@ -60,7 +60,8 @@
                         <Label text="Request Status" />
                         <ObjectStatus
                             text="{resultModel>/Status}"
-                            state="{resultModel>/StatusState}" />
+                            state="{resultModel>/StatusState}"
+                        />
 
                         <Label text="BOM Request ID" />
                         <Text text="{resultModel>/BomId}" />
@@ -68,7 +69,8 @@
                         <Label text="Created BOM" />
                         <ObjectIdentifier
                             title="{resultModel>/BillOfMaterial}"
-                            text="{resultModel>/CreatedBomVariant}" />
+                            text="{resultModel>/CreatedBomVariant}"
+                        />
                     </f:content>
                 </f:SimpleForm>
 
@@ -79,13 +81,14 @@
                     items="{itemModel>/items}"
                     mode="MultiSelect"
                     sticky="ColumnHeaders,HeaderToolbar"
-                    class="sapUiSmallMarginTop">
-
+                    class="sapUiSmallMarginTop"
+                >
                     <headerToolbar>
                         <OverflowToolbar>
                             <Title
                                 text="BOM Items"
-                                level="H3" />
+                                level="H3"
+                            />
 
                             <ToolbarSpacer />
 
@@ -94,45 +97,52 @@
                                 text="Add"
                                 type="Emphasized"
                                 press=".onAddRow"
-                                enabled="{resultModel>/Editable}" />
+                                enabled="{resultModel>/Editable}"
+                            />
 
                             <Button
                                 text="Delete"
                                 icon="sap-icon://delete"
                                 type="Reject"
                                 press=".onDelete"
-                                enabled="{resultModel>/Editable}" />
+                                enabled="{resultModel>/Editable}"
+                            />
 
                             <Button
                                 text="Export Excel"
                                 icon="sap-icon://excel-attachment"
-                                press=".onExportExcel" />
+                                press=".onExportExcel"
+                            />
 
                             <Button
                                 text="Select All"
                                 icon="sap-icon://multi-select"
-                                press=".onSelectAll" />
+                                press=".onSelectAll"
+                            />
                         </OverflowToolbar>
                     </headerToolbar>
 
                     <columns>
                         <Column
                             width="5rem"
-                            hAlign="Center">
+                            hAlign="Center"
+                        >
                             <Text text="Item" />
                         </Column>
 
                         <Column
                             width="14rem"
                             minScreenWidth="Tablet"
-                            demandPopin="true">
+                            demandPopin="true"
+                        >
                             <Text text="Component" />
                         </Column>
 
                         <Column
                             width="24rem"
                             minScreenWidth="Tablet"
-                            demandPopin="true">
+                            demandPopin="true"
+                        >
                             <Text text="Description" />
                         </Column>
 
@@ -140,21 +150,24 @@
                             width="8rem"
                             hAlign="End"
                             minScreenWidth="Tablet"
-                            demandPopin="true">
+                            demandPopin="true"
+                        >
                             <Text text="Quantity" />
                         </Column>
 
                         <Column
                             width="6rem"
                             minScreenWidth="Desktop"
-                            demandPopin="true">
+                            demandPopin="true"
+                        >
                             <Text text="UoM" />
                         </Column>
 
                         <Column
                             width="10rem"
                             minScreenWidth="Desktop"
-                            demandPopin="true">
+                            demandPopin="true"
+                        >
                             <Text text="Sort String" />
                         </Column>
 
@@ -162,7 +175,8 @@
                             width="6rem"
                             hAlign="Center"
                             minScreenWidth="Desktop"
-                            demandPopin="true">
+                            demandPopin="true"
+                        >
                             <Text text="Category" />
                         </Column>
                     </columns>
@@ -180,7 +194,8 @@
                                     change=".onComponentChange"
                                     editable="{resultModel>/Editable}"
                                     maxLength="40"
-                                    placeholder="Enter Component" />
+                                    placeholder="Enter Component"
+                                />
 
                                 <TextArea
                                     value="{itemModel>description}"
@@ -188,7 +203,8 @@
                                     growing="true"
                                     growingMaxLines="10"
                                     rows="1"
-                                    width="100%" />
+                                    width="100%"
+                                />
 
                                 <Input
                                     value="{itemModel>quantity}"
@@ -197,25 +213,29 @@
                                     liveChange=".onQuantityLiveChange"
                                     change=".onQuantityChange"
                                     editable="{resultModel>/Editable}"
-                                    placeholder="Enter Quantity" />
+                                    placeholder="Enter Quantity"
+                                />
 
                                 <Input
                                     value="{itemModel>uom}"
                                     width="5rem"
                                     editable="{resultModel>/Editable}"
-                                    placeholder="UoM" />
+                                    placeholder="UoM"
+                                />
 
                                 <Input
                                     value="{itemModel>sortString}"
                                     editable="{resultModel>/Editable}"
-                                    placeholder="Sort String" />
+                                    placeholder="Sort String"
+                                />
 
                                 <Input
                                     value="{itemModel>category}"
                                     width="3rem"
                                     editable="false"
                                     maxLength="1"
-                                    placeholder="Category" />
+                                    placeholder="Category"
+                                />
                             </cells>
                         </ColumnListItem>
                     </items>
@@ -232,23 +252,27 @@
                     type="Emphasized"
                     icon="sap-icon://save"
                     press=".onSave"
-                    enabled="{resultModel>/CanSave}" />
+                    enabled="{resultModel>/CanSave}"
+                />
 
                 <Button
                     text="Retry Submit"
                     type="Attention"
                     icon="sap-icon://restart"
                     press=".onRetrySubmit"
-                    enabled="{resultModel>/CanRetry}" />
+                    enabled="{resultModel>/CanRetry}"
+                />
 
                 <Button
                     text="New BOM"
                     icon="sap-icon://add-document"
-                    press=".onNewBOM" />
+                    press=".onNewBOM"
+                />
 
                 <Button
                     text="Cancel"
-                    press=".onCancel" />
+                    press=".onCancel"
+                />
             </OverflowToolbar>
         </footer>
     </Page>
