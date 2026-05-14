@@ -52,7 +52,7 @@ sap.ui.define(
         var oArguments = oEvent.getParameter("arguments") || {};
         var oQuery = oArguments["?query"];
 
-        if (oQuery) {
+        if (oQuery && Object.keys(oQuery).length > 0) {
           var sToday = new Date().toISOString().slice(0, 10);
 
           var oHeaderData = {
@@ -76,7 +76,7 @@ sap.ui.define(
 
           oHeaderModel.setData(oHeaderData);
         } else {
-          oHeaderModel.setProperty("/BomUsage", "1");
+          this._resetHeaderAndItemDraftData(oHeaderModel);
         }
 
         this.getView().setModel(oHeaderModel, "headerModel");
@@ -84,6 +84,43 @@ sap.ui.define(
           this.getOwnerComponent().getModel("itemModel"),
           "itemModel"
         );
+      },
+
+      _resetHeaderAndItemDraftData: function (oHeaderModel) {
+        var sToday = new Date().toISOString().slice(0, 10);
+
+        if (!oHeaderModel) {
+          oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        }
+
+        if (oHeaderModel) {
+          oHeaderModel.setData({
+            Material: "",
+            Plant: "",
+            BomUsage: "1",
+            AltBom: "",
+            BaseQty: 1,
+            ValidFrom: sToday,
+            BaseUom: "",
+
+            CopyMaterial: "",
+            CopyPlant: "",
+            CopyAltBom: "",
+
+            IsValidated: false,
+            Message: "",
+            MessageType: "Information",
+            ShowMessage: false
+          });
+        }
+
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (oItemModel) {
+          oItemModel.setData({
+            items: []
+          });
+        }
       },
 
       _initHeaderModel: function () {
@@ -422,42 +459,9 @@ sap.ui.define(
       },
 
       onCancel: function () {
-        var sToday = new Date().toISOString().slice(0, 10);
-
-        var oHeaderData = {
-          Material: "",
-          Plant: "",
-          BomUsage: "1",
-          AltBom: "",
-          BaseQty: 1,
-          ValidFrom: sToday,
-          BaseUom: "",
-
-          CopyMaterial: "",
-          CopyPlant: "",
-          CopyAltBom: "",
-
-          IsValidated: false,
-          Message: "",
-          MessageType: "Information",
-          ShowMessage: false
-        };
-
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
-        if (oHeaderModel) {
-          oHeaderModel.setData(oHeaderData);
-        } else {
-          oHeaderModel = new JSONModel(oHeaderData);
-          this.getOwnerComponent().setModel(oHeaderModel, "headerModel");
-          this.getView().setModel(oHeaderModel, "headerModel");
-        }
-
-        var oItemModel = this.getOwnerComponent().getModel("itemModel");
-
-        if (oItemModel) {
-          oItemModel.setProperty("/items", []);
-        }
+        this._resetHeaderAndItemDraftData(oHeaderModel);
 
         this.getOwnerComponent().getRouter().navTo(
           "RouteView1",

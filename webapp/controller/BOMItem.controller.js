@@ -1,5 +1,5 @@
 /* eslint-disable max-params */
-/* global jQuery, Promise, sap */
+/* global jQuery, Promise */
 
 sap.ui.define(
   [
@@ -116,15 +116,32 @@ sap.ui.define(
         });
       },
 
-      onNavBack: function () {
-        var sPreviousHash = History.getInstance().getPreviousHash();
+  onNavBack: function () {
+  var oResultModel = this.getView().getModel("resultModel");
+  var sStatus = oResultModel ? oResultModel.getProperty("/Status") : "";
 
-        if (sPreviousHash !== undefined) {
-          window.history.go(-1);
-        } else {
-          this.getOwnerComponent().getRouter().navTo("RouteView1", {}, true);
-        }
+  if (sStatus === "SUCCESS") {
+    this._clearBomDraftData();
+
+    this.getOwnerComponent().getRouter().navTo(
+      "RouteView1",
+      {
+        "?query": {}
       },
+      true
+    );
+
+    return;
+  }
+
+  var sPreviousHash = History.getInstance().getPreviousHash();
+
+  if (sPreviousHash !== undefined) {
+    window.history.go(-1);
+  } else {
+    this.getOwnerComponent().getRouter().navTo("RouteView1", {}, true);
+  }
+},
 
       onAddRow: function () {
         var oModel = this.getOwnerComponent().getModel("itemModel");
@@ -558,47 +575,42 @@ sap.ui.define(
       },
 
       onCancel: function () {
-        var that = this;
+  var that = this;
 
-        MessageBox.warning(
-          "Are you sure you want to cancel? All item data will be lost.",
-          {
-            actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-            emphasizedAction: MessageBox.Action.OK,
+  MessageBox.warning(
+    "Are you sure you want to cancel? All item data will be lost.",
+    {
+      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+      emphasizedAction: MessageBox.Action.OK,
 
-            onClose: function (sAction) {
-              if (sAction === MessageBox.Action.OK) {
-                var oItemModel = that
-                  .getOwnerComponent()
-                  .getModel("itemModel");
+      onClose: function (sAction) {
+        if (sAction === MessageBox.Action.OK) {
+          that._clearBomDraftData();
 
-                if (oItemModel) {
-                  oItemModel.setProperty("/items", []);
-                }
-
-                that._resetResultModel();
-
-                that
-                  .getOwnerComponent()
-                  .getRouter()
-                  .navTo("RouteView1", {}, true);
-              }
-            }
-          }
-        );
-      },
+          that.getOwnerComponent().getRouter().navTo(
+            "RouteView1",
+            {
+              "?query": {}
+            },
+            true
+          );
+        }
+      }
+    }
+  );
+},
 
       onNewBOM: function () {
-        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+  this._clearBomDraftData();
 
-        if (oItemModel) {
-          oItemModel.setProperty("/items", []);
-        }
-
-        this._resetResultModel();
-        this.getOwnerComponent().setModel(null, "headerModel");
-        this.getOwnerComponent().getRouter().navTo("RouteView1", {}, true);
-      },
+  this.getOwnerComponent().getRouter().navTo(
+    "RouteView1",
+    {
+      "?query": {}
+    },
+    true
+  );
+},
 
       onExportExcel: function () {
         var oTable = this.byId("bomItemsTable");
@@ -1252,7 +1264,42 @@ sap.ui.define(
           return aMatch ? aMatch[1] : "";
         }
       },
+_clearBomDraftData: function () {
+  var sToday = new Date().toISOString().slice(0, 10);
 
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+
+  if (oHeaderModel) {
+    oHeaderModel.setData({
+      Material: "",
+      Plant: "",
+      BomUsage: "1",
+      AltBom: "",
+      BaseQty: 1,
+      ValidFrom: sToday,
+      BaseUom: "",
+
+      CopyMaterial: "",
+      CopyPlant: "",
+      CopyAltBom: "",
+
+      IsValidated: false,
+      Message: "",
+      MessageType: "Information",
+      ShowMessage: false
+    });
+  }
+
+  var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+  if (oItemModel) {
+    oItemModel.setData({
+      items: []
+    });
+  }
+
+  this._resetResultModel();
+},
       _postAction: function (sRelativePath, oPayload) {
         var oModel = this.getOwnerComponent().getModel();
         var sServiceUrl = oModel.getServiceUrl().replace(/\/$/, "");
