@@ -1,5 +1,5 @@
 /* eslint-disable max-params */
-/* global jQuery */
+/* global jQuery, Promise, sap */
 
 sap.ui.define(
   [
@@ -36,9 +36,7 @@ sap.ui.define(
 
     return Controller.extend("zppbomautomation.controller.BOMItem", {
       onInit: function () {
-        var oItemModel = new JSONModel({
-          items: []
-        });
+        this._initSharedItemModel();
 
         var oResultModel = new JSONModel({
           BomId: "",
@@ -54,13 +52,27 @@ sap.ui.define(
           Editable: true
         });
 
-        this.getView().setModel(oItemModel, "itemModel");
         this.getView().setModel(oResultModel, "resultModel");
 
         var oRouter = this.getOwnerComponent().getRouter();
+
         oRouter
           .getRoute("RouteBOMItem")
           .attachPatternMatched(this._onRouteMatched, this);
+      },
+
+      _initSharedItemModel: function () {
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (!oItemModel) {
+          oItemModel = new JSONModel({
+            items: []
+          });
+
+          this.getOwnerComponent().setModel(oItemModel, "itemModel");
+        }
+
+        this.getView().setModel(oItemModel, "itemModel");
       },
 
       _onRouteMatched: function () {
@@ -72,9 +84,10 @@ sap.ui.define(
         }
 
         this.getView().setModel(oHeaderModel, "headerModel");
+        this._initSharedItemModel();
         this._resetResultModel();
 
-        var oItemModel = this.getView().getModel("itemModel");
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
         var aItems = oItemModel.getProperty("/items") || [];
 
         if (aItems.length === 0) {
@@ -111,7 +124,13 @@ sap.ui.define(
       },
 
       onAddRow: function () {
-        var oModel = this.getView().getModel("itemModel");
+        var oModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (!oModel) {
+          this._initSharedItemModel();
+          oModel = this.getOwnerComponent().getModel("itemModel");
+        }
+
         var aItems = oModel.getProperty("/items") || [];
 
         var iNextItem = 1;
@@ -139,7 +158,7 @@ sap.ui.define(
 
       onDelete: function () {
         var oTable = this.byId("bomItemsTable");
-        var oModel = this.getView().getModel("itemModel");
+        var oModel = this.getOwnerComponent().getModel("itemModel");
         var aItems = oModel.getProperty("/items") || [];
         var aSelectedItems = oTable.getSelectedItems();
 
@@ -198,11 +217,31 @@ sap.ui.define(
         oInput.setValue(sValue);
       },
 
+      onQuantityChange: function (oEvent) {
+        var oInput = oEvent.getSource();
+        var sValue = oInput.getValue() || "";
+
+        if (!sValue) {
+          return;
+        }
+
+        if (!this._isValidQuantityDecimal(sValue)) {
+          oInput.setValueState("Error");
+          oInput.setValueStateText(
+            "Quantity can have maximum 3 digits after decimal."
+          );
+          return;
+        }
+
+        oInput.setValueState("None");
+        oInput.setValueStateText("");
+      },
+
       onSave: async function () {
         var oResultModel = this.getView().getModel("resultModel");
 
         try {
-          var oValidation = this._validateBeforeSave();
+          var oValidation = await this._validateBeforeSaveAsync();
 
           if (!oValidation.valid) {
             MessageBox.error(oValidation.message);
@@ -235,6 +274,54 @@ sap.ui.define(
         }
       },
 
+      _validateBeforeSaveAsync: async function () {
+        var oValidation = this._validateBeforeSave();
+
+        if (!oValidation.valid) {
+          return oValidation;
+        }
+
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+        var aItems = oItemModel.getProperty("/items") || [];
+
+        for (var i = 0; i < aItems.length; i++) {
+          var oItem = aItems[i];
+          var sComponent = String(oItem.component || "").trim().toUpperCase();
+
+          var oCheckResult = await this._checkComponentPlantExtension(
+            sComponent,
+            sPlant
+          );
+
+          if (!oCheckResult.valid) {
+            return {
+              valid: false,
+              message:
+                "Row " +
+                (i + 1) +
+                ": Component " +
+                sComponent +
+                " is not available in Plant " +
+                sPlant +
+                "."
+            };
+          }
+
+          oItem.component = oCheckResult.component || sComponent;
+          oItem.description = oCheckResult.description || "";
+          oItem.uom = oCheckResult.uom || oItem.uom || "";
+        }
+
+        oItemModel.refresh(true);
+
+        return {
+          valid: true,
+          message: ""
+        };
+      },
+
       _validateBeforeSave: function () {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
@@ -247,8 +334,8 @@ sap.ui.define(
         }
 
         var oHeader = oHeaderModel.getData();
-        var aItems =
-          this.getView().getModel("itemModel").getProperty("/items") || [];
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+        var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
 
         if (!oHeader.Material) {
           return {
@@ -324,15 +411,6 @@ sap.ui.define(
                 sPrefix + "Quantity can have maximum 3 digits after decimal."
             };
           }
-
-          if (!oItem.uom) {
-            return {
-              valid: false,
-              message:
-                sPrefix +
-                "UOM is required. Please select or enter a valid component."
-            };
-          }
         }
 
         return {
@@ -351,8 +429,9 @@ sap.ui.define(
         var oHeader = this.getOwnerComponent()
           .getModel("headerModel")
           .getData();
-        var aItems =
-          this.getView().getModel("itemModel").getProperty("/items") || [];
+
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+        var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
 
         return {
           Material: oHeader.Material,
@@ -485,8 +564,16 @@ sap.ui.define(
 
             onClose: function (sAction) {
               if (sAction === MessageBox.Action.OK) {
-                that.getView().getModel("itemModel").setProperty("/items", []);
+                var oItemModel = that
+                  .getOwnerComponent()
+                  .getModel("itemModel");
+
+                if (oItemModel) {
+                  oItemModel.setProperty("/items", []);
+                }
+
                 that._resetResultModel();
+
                 that
                   .getOwnerComponent()
                   .getRouter()
@@ -498,7 +585,12 @@ sap.ui.define(
       },
 
       onNewBOM: function () {
-        this.getView().getModel("itemModel").setProperty("/items", []);
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (oItemModel) {
+          oItemModel.setProperty("/items", []);
+        }
+
         this._resetResultModel();
         this.getOwnerComponent().setModel(null, "headerModel");
         this.getOwnerComponent().getRouter().navTo("RouteView1", {}, true);
@@ -528,7 +620,7 @@ sap.ui.define(
           return {
             Material: oHeader.Material,
             Plant: oHeader.Plant,
-            BomUsage: oHeader.BomUsage,
+            BomUsage: oHeader.BomUsage || "1",
             AltBom: oHeader.AltBom,
             item: oData.item,
             component: oData.component,
@@ -611,9 +703,12 @@ sap.ui.define(
           return;
         }
 
-        var sComponent = (oInput.getValue() || "").trim();
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+        var sComponent = (oInput.getValue() || "").trim().toUpperCase();
 
         if (!sComponent) {
+          oContext.getModel().setProperty(oContext.getPath() + "/component", "");
           oContext
             .getModel()
             .setProperty(oContext.getPath() + "/description", "");
@@ -621,20 +716,39 @@ sap.ui.define(
           return;
         }
 
-        await this._fillComponentDetails(oContext, sComponent);
+        oInput.setValue(sComponent);
+
+        if (!sPlant) {
+          MessageBox.warning("Please select Plant first.");
+
+          oContext
+            .getModel()
+            .setProperty(oContext.getPath() + "/description", "");
+          oContext.getModel().setProperty(oContext.getPath() + "/uom", "");
+
+          return;
+        }
+
+        await this._fillComponentDetails(oContext, sComponent, sPlant);
       },
 
-      _fillComponentDetails: function (oContext, sComponent) {
+      _fillComponentDetails: function (oContext, sComponent, sPlant) {
         var oODataModel = this.getOwnerComponent().getModel();
         var oItemModel = oContext.getModel();
         var sPath = oContext.getPath();
-/* global Promise */
+
         return new Promise(function (resolve) {
           var oListBinding = oODataModel.bindList(
-            "/component_vh",
+            "/plant_component_vh",
             undefined,
             undefined,
-            [new Filter("component", FilterOperator.EQ, sComponent)]
+            [
+              new Filter("Plant", FilterOperator.EQ, sPlant),
+              new Filter("component", FilterOperator.EQ, sComponent)
+            ],
+            {
+              $select: "component,ProductDescription,uom"
+            }
           );
 
           oListBinding
@@ -644,8 +758,15 @@ sap.ui.define(
                 oItemModel.setProperty(sPath + "/description", "");
                 oItemModel.setProperty(sPath + "/uom", "");
 
-                MessageBox.warning("Component not found in value help.");
-                resolve();
+                MessageBox.warning(
+                  "Component " +
+                    sComponent +
+                    " is not available in Plant " +
+                    sPlant +
+                    "."
+                );
+
+                resolve(false);
                 return;
               }
 
@@ -655,20 +776,73 @@ sap.ui.define(
                 sPath + "/component",
                 oData.component || sComponent
               );
+
               oItemModel.setProperty(
                 sPath + "/description",
                 oData.ProductDescription || ""
               );
+
               oItemModel.setProperty(sPath + "/uom", oData.uom || "");
 
-              resolve();
+              resolve(true);
             })
             .catch(function () {
               oItemModel.setProperty(sPath + "/description", "");
               oItemModel.setProperty(sPath + "/uom", "");
 
-              MessageBox.error("Could not fetch component details.");
-              resolve();
+              MessageBox.error("Could not validate component against plant.");
+              resolve(false);
+            });
+        });
+      },
+
+      _checkComponentPlantExtension: function (sComponent, sPlant) {
+        var oODataModel = this.getOwnerComponent().getModel();
+
+        return new Promise(function (resolve) {
+          var oListBinding = oODataModel.bindList(
+            "/plant_component_vh",
+            undefined,
+            undefined,
+            [
+              new Filter("Plant", FilterOperator.EQ, sPlant),
+              new Filter("component", FilterOperator.EQ, sComponent)
+            ],
+            {
+              $select: "component,ProductDescription,uom"
+            }
+          );
+
+          oListBinding
+            .requestContexts(0, 1)
+            .then(function (aContexts) {
+              if (!aContexts.length) {
+                resolve({
+                  valid: false,
+                  component: "",
+                  description: "",
+                  uom: ""
+                });
+
+                return;
+              }
+
+              var oData = aContexts[0].getObject();
+
+              resolve({
+                valid: true,
+                component: oData.component || sComponent,
+                description: oData.ProductDescription || "",
+                uom: oData.uom || ""
+              });
+            })
+            .catch(function () {
+              resolve({
+                valid: false,
+                component: "",
+                description: "",
+                uom: ""
+              });
             });
         });
       },
@@ -688,27 +862,29 @@ sap.ui.define(
 
       _loadComponentVHData: function () {
         var that = this;
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
 
-        /*
-         * If data is already loaded once, reuse it.
-         * This makes value help fast from second opening onwards.
-         */
-        if (this._oComponentVHModel) {
+        if (!sPlant) {
+          MessageBox.warning("Please select Plant first.");
+
+          return Promise.reject({
+            message: "Plant is missing."
+          });
+        }
+
+        if (this._oComponentVHModel && this._sComponentVHPlant === sPlant) {
           return Promise.resolve(this._oComponentVHModel);
         }
 
         return new Promise(function (resolve, reject) {
           var oODataModel = that.getOwnerComponent().getModel();
 
-          /*
-           * OData V4 does not support oModel.read().
-           * Use bindList + requestContexts instead.
-           */
           var oListBinding = oODataModel.bindList(
-            "/component_vh",
+            "/plant_component_vh",
             null,
             null,
-            null,
+            [new Filter("Plant", FilterOperator.EQ, sPlant)],
             {
               $select: "component,ProductDescription,uom"
             }
@@ -721,6 +897,7 @@ sap.ui.define(
                 return oContext.getObject();
               });
 
+              that._sComponentVHPlant = sPlant;
               that._oComponentVHModel = new JSONModel({
                 items: aResults
               });
@@ -746,7 +923,10 @@ sap.ui.define(
               var fnDoSearch = function () {
                 var aFilters = [];
 
-                var sComponent = oComponentInput.getValue();
+                var sComponent = (
+                  oComponentInput.getValue() || ""
+                ).toUpperCase();
+
                 var sDescription = oDescriptionInput.getValue();
 
                 if (sComponent) {
@@ -777,6 +957,11 @@ sap.ui.define(
               };
 
               oComponentInput = new Input({
+                liveChange: function (oEvent) {
+                  var sValue = oEvent.getSource().getValue();
+
+                  oEvent.getSource().setValue(sValue.toUpperCase());
+                },
                 submit: fnDoSearch
               });
 
@@ -905,13 +1090,11 @@ sap.ui.define(
                   oItemModel.setProperty(sPath + "/uom", oData.uom || "");
 
                   that._clearComponentValueHelpSearch();
-
                   that._oComponentVHD.close();
                 },
 
                 cancel: function () {
                   that._clearComponentValueHelpSearch();
-
                   that._oComponentVHD.close();
                 }
               });
@@ -922,12 +1105,7 @@ sap.ui.define(
               that._oComponentTable.setModel(oLocalModel, "componentVH");
             }
 
-            /*
-             * Important:
-             * Clear old search whenever opening value help.
-             */
             that._clearComponentValueHelpSearch();
-
             that._oComponentVHD.open();
           })
           .catch(function (oError) {
@@ -991,6 +1169,7 @@ sap.ui.define(
           var aMatch = String(sApiResponse).match(
             /"BillOfMaterial"\s*:\s*"([^"]+)"/
           );
+
           return aMatch ? aMatch[1] : "";
         }
       },

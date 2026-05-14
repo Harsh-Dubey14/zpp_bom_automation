@@ -1,3 +1,5 @@
+/* global jQuery, Promise, sap */
+
 sap.ui.define(
   [
     "sap/ui/core/mvc/Controller",
@@ -9,7 +11,7 @@ sap.ui.define(
     "sap/m/Input",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "sap/ui/model/json/JSONModel",
+    "sap/ui/model/json/JSONModel"
   ],
   function (
     Controller,
@@ -28,8 +30,10 @@ sap.ui.define(
     return Controller.extend("zppbomautomation.controller.View1", {
       onInit: function () {
         this._initHeaderModel();
+        this._initItemModel();
 
         var oRouter = this.getOwnerComponent().getRouter();
+
         oRouter
           .getRoute("RouteView1")
           .attachPatternMatched(this._onRouteMatched, this);
@@ -43,6 +47,8 @@ sap.ui.define(
           oHeaderModel = this.getOwnerComponent().getModel("headerModel");
         }
 
+        this._initItemModel();
+
         var oArguments = oEvent.getParameter("arguments") || {};
         var oQuery = oArguments["?query"];
 
@@ -52,7 +58,7 @@ sap.ui.define(
           var oHeaderData = {
             Material: oQuery.Material || "",
             Plant: oQuery.Plant || "",
-            BomUsage: oQuery.BomUsage || "1",
+            BomUsage: "1",
             AltBom: oQuery.AltBom || "",
             BaseQty: oQuery.BaseQty ? Number(oQuery.BaseQty) : 1,
             ValidFrom: oQuery.ValidFrom || sToday,
@@ -65,19 +71,26 @@ sap.ui.define(
             IsValidated: oQuery.IsValidated === "true",
             Message: oQuery.Message || "",
             MessageType: oQuery.MessageType || "Information",
-            ShowMessage: oQuery.ShowMessage === "true",
+            ShowMessage: oQuery.ShowMessage === "true"
           };
 
           oHeaderModel.setData(oHeaderData);
+        } else {
+          oHeaderModel.setProperty("/BomUsage", "1");
         }
 
         this.getView().setModel(oHeaderModel, "headerModel");
+        this.getView().setModel(
+          this.getOwnerComponent().getModel("itemModel"),
+          "itemModel"
+        );
       },
 
       _initHeaderModel: function () {
         var oExistingModel = this.getOwnerComponent().getModel("headerModel");
 
         if (oExistingModel) {
+          oExistingModel.setProperty("/BomUsage", "1");
           this.getView().setModel(oExistingModel, "headerModel");
           return;
         }
@@ -100,7 +113,7 @@ sap.ui.define(
           IsValidated: false,
           Message: "",
           MessageType: "Information",
-          ShowMessage: false,
+          ShowMessage: false
         };
 
         var oModel = new JSONModel(oHeaderData);
@@ -109,12 +122,30 @@ sap.ui.define(
         this.getView().setModel(oModel, "headerModel");
       },
 
+      _initItemModel: function () {
+        var oExistingModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (oExistingModel) {
+          this.getView().setModel(oExistingModel, "itemModel");
+          return;
+        }
+
+        var oItemModel = new JSONModel({
+          items: []
+        });
+
+        this.getOwnerComponent().setModel(oItemModel, "itemModel");
+        this.getView().setModel(oItemModel, "itemModel");
+      },
+
       _syncHeaderToRoute: function () {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
         if (!oHeaderModel) {
           return;
         }
+
+        oHeaderModel.setProperty("/BomUsage", "1");
 
         var oHeader = oHeaderModel.getData();
 
@@ -126,7 +157,7 @@ sap.ui.define(
               "?query": {
                 Material: oHeader.Material || "",
                 Plant: oHeader.Plant || "",
-                BomUsage: oHeader.BomUsage || "1",
+                BomUsage: "1",
                 AltBom: oHeader.AltBom || "",
                 BaseQty: String(oHeader.BaseQty || 1),
                 ValidFrom: oHeader.ValidFrom || "",
@@ -139,24 +170,33 @@ sap.ui.define(
                 IsValidated: String(!!oHeader.IsValidated),
                 Message: oHeader.Message || "",
                 MessageType: oHeader.MessageType || "Information",
-                ShowMessage: String(!!oHeader.ShowMessage),
-              },
+                ShowMessage: String(!!oHeader.ShowMessage)
+              }
             },
-            true,
+            true
           );
       },
 
-      onHeaderFieldChange: function () {
+      onHeaderFieldChange: function (oEvent) {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
         if (!oHeaderModel) {
           return;
         }
 
+        oHeaderModel.setProperty("/BomUsage", "1");
+
         /*
-         * Whenever Material / Plant / BOM Usage changes,
-         * old validation, Base UOM and Alternate BOM must be cleared.
+         * Copy From fields should not reset main header validation.
+         * Your XML uses onHeaderFieldChange for CopyMaterial, CopyPlant and CopyAltBom also.
+         * So this check keeps the already validated main header untouched.
          */
+        if (this._isCopyFromField(oEvent)) {
+          this._clearCopiedItems();
+          this._syncHeaderToRoute();
+          return;
+        }
+
         oHeaderModel.setProperty("/IsValidated", false);
         oHeaderModel.setProperty("/BaseUom", "");
         oHeaderModel.setProperty("/AltBom", "");
@@ -164,10 +204,33 @@ sap.ui.define(
         oHeaderModel.setProperty("/MessageType", "Information");
         oHeaderModel.setProperty("/ShowMessage", false);
 
+        this._clearCopiedItems();
         this._syncHeaderToRoute();
       },
 
-      onContinue: function () {
+      _isCopyFromField: function (oEvent) {
+        if (!oEvent || !oEvent.getSource) {
+          return false;
+        }
+
+        var sId = oEvent.getSource().getId();
+
+        return (
+          sId.indexOf("inpCopyMaterial") !== -1 ||
+          sId.indexOf("inpCopyPlant") !== -1 ||
+          sId.indexOf("inpCopyAltBom") !== -1
+        );
+      },
+
+      _clearCopiedItems: function () {
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (oItemModel) {
+          oItemModel.setProperty("/items", []);
+        }
+      },
+
+      onContinue: async function () {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
         if (!oHeaderModel) {
@@ -175,14 +238,12 @@ sap.ui.define(
           return;
         }
 
+        oHeaderModel.setProperty("/BomUsage", "1");
+
         var oHeader = oHeaderModel.getData();
 
-        /*
-         * Alternate BOM is not entered by user anymore.
-         * It comes from GetNextAltBOM API.
-         */
-        if (!oHeader.Material || !oHeader.Plant || !oHeader.BomUsage) {
-          MessageBox.error("Please fill Material, Plant and BOM Usage.");
+        if (!oHeader.Material || !oHeader.Plant) {
+          MessageBox.error("Please fill Material and Plant.");
           return;
         }
 
@@ -192,9 +253,7 @@ sap.ui.define(
         }
 
         if (!oHeader.IsValidated) {
-          MessageBox.error(
-            "Please validate Material, Plant and BOM Usage before continuing.",
-          );
+          MessageBox.error("Please validate Material and Plant before continuing.");
           return;
         }
 
@@ -203,9 +262,24 @@ sap.ui.define(
           return;
         }
 
-        this._syncHeaderToRoute();
+        try {
+          if (oHeader.CopyMaterial || oHeader.CopyPlant || oHeader.CopyAltBom) {
+            if (!oHeader.CopyMaterial || !oHeader.CopyPlant || !oHeader.CopyAltBom) {
+              MessageBox.error(
+                "Please fill Copy Material, Copy Plant and Copy Alternate BOM, or keep all Copy From fields blank."
+              );
+              return;
+            }
 
-        this.getOwnerComponent().getRouter().navTo("RouteBOMItem");
+            await this._loadCopyFromAlternateBomItems(false);
+          }
+
+          this._syncHeaderToRoute();
+
+          this.getOwnerComponent().getRouter().navTo("RouteBOMItem");
+        } catch (oError) {
+          MessageBox.error(this._getErrorText(oError));
+        }
       },
 
       onValidateMaterial: async function () {
@@ -216,29 +290,47 @@ sap.ui.define(
           return;
         }
 
+        oHeaderModel.setProperty("/BomUsage", "1");
+
         var oHeader = oHeaderModel.getData();
 
-        /*
-         * New required fields for validation:
-         * Material + Plant + BOM Usage
-         */
-        if (!oHeader.Material || !oHeader.Plant || !oHeader.BomUsage) {
-          MessageBox.error("Please enter Material, Plant and BOM Usage first.");
+        if (!oHeader.Material || !oHeader.Plant) {
+          MessageBox.error("Please enter Material and Plant first.");
           return;
         }
 
         try {
-          /*
-           * Step 1: Validate Material + Plant
-           */
+          var oMatchedMaterial = await this._resolveMaterialFromValueHelp(
+            oHeader.Material
+          );
+
+          if (!oMatchedMaterial) {
+            this._setInvalidMaterialMessage(
+              "Material does not exist. Please enter or select a valid material."
+            );
+
+            MessageBox.error(
+              "Material does not exist. Please enter or select a valid material."
+            );
+            return;
+          }
+
+          oHeaderModel.setProperty("/Material", oMatchedMaterial.Product);
+          oHeaderModel.setProperty("/BomUsage", "1");
+
+          oHeader.Material = oMatchedMaterial.Product;
+          oHeader.BomUsage = "1";
+
+          this._syncHeaderToRoute();
+
           var oValidatePayload = {
             Material: oHeader.Material,
-            Plant: oHeader.Plant,
+            Plant: oHeader.Plant
           };
 
           var oValidateResponse = await this._postAction(
             "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ValidateMaterialPlant",
-            oValidatePayload,
+            oValidatePayload
           );
 
           if (!oValidateResponse.IsValid) {
@@ -247,14 +339,15 @@ sap.ui.define(
             oHeaderModel.setProperty("/IsValidated", false);
             oHeaderModel.setProperty(
               "/Message",
-              oValidateResponse.Message || "",
+              oValidateResponse.Message || ""
             );
             oHeaderModel.setProperty("/MessageType", "Error");
             oHeaderModel.setProperty("/ShowMessage", true);
+            oHeaderModel.setProperty("/BomUsage", "1");
 
             MessageBox.error(
               oValidateResponse.Message ||
-                "Material and Plant validation failed.",
+                "Material and Plant validation failed."
             );
 
             this._syncHeaderToRoute();
@@ -263,37 +356,37 @@ sap.ui.define(
 
           oHeaderModel.setProperty(
             "/BaseUom",
-            oValidateResponse.BaseUnit || "",
+            oValidateResponse.BaseUnit || ""
           );
 
-          /*
-           * Step 2: Get Next Alternate BOM
-           */
+          oHeaderModel.setProperty("/BomUsage", "1");
+
           var oAltBomPayload = {
             Material: oHeader.Material,
             Plant: oHeader.Plant,
-            BomUsage: oHeader.BomUsage,
+            BomUsage: "1"
           };
 
           var oAltBomResponse = await this._postAction(
             "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.GetNextAltBOM",
-            oAltBomPayload,
+            oAltBomPayload
           );
 
           oHeaderModel.setProperty("/Message", oAltBomResponse.Message || "");
           oHeaderModel.setProperty("/ShowMessage", true);
+          oHeaderModel.setProperty("/BomUsage", "1");
 
           if (oAltBomResponse.Success) {
             oHeaderModel.setProperty(
               "/AltBom",
-              oAltBomResponse.NextAltBom || "",
+              oAltBomResponse.NextAltBom || ""
             );
             oHeaderModel.setProperty("/IsValidated", true);
             oHeaderModel.setProperty("/MessageType", "Success");
 
             MessageToast.show(
               oAltBomResponse.Message ||
-                "Material, Plant and BOM Usage are valid.",
+                "Material and Plant are valid. BOM Usage is fixed as 1."
             );
           } else {
             oHeaderModel.setProperty("/AltBom", "");
@@ -302,7 +395,7 @@ sap.ui.define(
 
             MessageBox.error(
               oAltBomResponse.Message ||
-                "Alternate BOM could not be determined.",
+                "Alternate BOM could not be determined."
             );
           }
 
@@ -314,6 +407,7 @@ sap.ui.define(
           oHeaderModel.setProperty("/Message", this._getErrorText(oError));
           oHeaderModel.setProperty("/MessageType", "Error");
           oHeaderModel.setProperty("/ShowMessage", true);
+          oHeaderModel.setProperty("/BomUsage", "1");
 
           this._syncHeaderToRoute();
 
@@ -340,7 +434,7 @@ sap.ui.define(
           IsValidated: false,
           Message: "",
           MessageType: "Information",
-          ShowMessage: false,
+          ShowMessage: false
         };
 
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
@@ -353,113 +447,167 @@ sap.ui.define(
           this.getView().setModel(oHeaderModel, "headerModel");
         }
 
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (oItemModel) {
+          oItemModel.setProperty("/items", []);
+        }
+
         this.getOwnerComponent().getRouter().navTo(
           "RouteView1",
           {
-            "?query": {},
+            "?query": {}
           },
-          true,
+          true
         );
 
         MessageToast.show("Form cleared");
       },
 
       onBomUsageValueHelp: function () {
-        var that = this;
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
-        var aData = [
-          { Usage: "1", UsageText: "Production" },
-          { Usage: "2", UsageText: "Engineering/Design" },
-          { Usage: "3", UsageText: "Universal" },
-          { Usage: "4", UsageText: "Plant Maintenance" },
-          { Usage: "5", UsageText: "Sales and Distribution" },
-          { Usage: "P", UsageText: "Predictive MRP" },
-          { Usage: "S", UsageText: "Service Management" },
-        ];
-
-        var oModel = new JSONModel(aData);
-
-        if (!this._oUsageVHD) {
-          this._oUsageVHD = new ValueHelpDialog({
-            title: "Select BOM Usage",
-            supportMultiselect: false,
-            supportRanges: false,
-            key: "Usage",
-            descriptionKey: "UsageText",
-
-            ok: function (oEvent) {
-              var aTokens = oEvent.getParameter("tokens");
-
-              if (aTokens.length > 0) {
-                that
-                  .getOwnerComponent()
-                  .getModel("headerModel")
-                  .setProperty("/BomUsage", aTokens[0].getKey());
-
-                that.onHeaderFieldChange();
-              }
-
-              that._oUsageVHD.close();
-            },
-
-            cancel: function () {
-              that._oUsageVHD.close();
-            },
-          });
-
-          var oTable = new sap.m.Table({
-            columns: [
-              new sap.m.Column({
-                header: new sap.m.Label({ text: "Usage" }),
-              }),
-              new sap.m.Column({
-                header: new sap.m.Label({ text: "Usage Text" }),
-              }),
-            ],
-          });
-
-          oTable.bindItems({
-            path: "/",
-            template: new sap.m.ColumnListItem({
-              type: "Active",
-              cells: [
-                new sap.m.Text({ text: "{Usage}" }),
-                new sap.m.Text({ text: "{UsageText}" }),
-              ],
-            }),
-          });
-
-          oTable.attachItemPress(function (oEvent) {
-            var oData = oEvent
-              .getParameter("listItem")
-              .getBindingContext()
-              .getObject();
-
-            that
-              .getOwnerComponent()
-              .getModel("headerModel")
-              .setProperty("/BomUsage", oData.Usage);
-
-            that.onHeaderFieldChange();
-            that._oUsageVHD.close();
-          });
-
-          this._oUsageVHD.setTable(oTable);
-          this._oUsageVHD.setModel(oModel);
+        if (oHeaderModel) {
+          oHeaderModel.setProperty("/BomUsage", "1");
+          this._syncHeaderToRoute();
         }
 
-        this._oUsageVHD.open();
+        MessageToast.show("BOM Usage is fixed as 1 - Production.");
       },
 
-      // onMaterialValueHelp: function () {
-      //     this._sMaterialTargetProperty = "/Material";
-      //     this._openMaterialValueHelp();
-      // },
+      onLoadCopyFromBomItems: function () {
+        this._loadCopyFromAlternateBomItems(true)
+          .then(function (aItems) {
+            MessageToast.show(aItems.length + " BOM item(s) copied successfully.");
+          })
+          .catch(
+            function (oError) {
+              MessageBox.error(this._getErrorText(oError));
+            }.bind(this)
+          );
+      },
 
-      // onCopyMaterialValueHelp: function () {
-      //     this._sMaterialTargetProperty = "/CopyMaterial";
-      //     this._openMaterialValueHelp();
-      // },
+      _loadCopyFromAlternateBomItems: function (bShowSuccessMessage) {
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
+
+        if (!oHeaderModel) {
+          return Promise.reject({
+            message: "Header model is missing."
+          });
+        }
+
+        if (!oItemModel) {
+          this._initItemModel();
+          oItemModel = this.getOwnerComponent().getModel("itemModel");
+        }
+
+        var oHeader = oHeaderModel.getData();
+
+        if (!oHeader.CopyMaterial || !oHeader.CopyPlant || !oHeader.CopyAltBom) {
+          return Promise.reject({
+            message: "Please enter Copy Material, Copy Plant and Copy Alternate BOM."
+          });
+        }
+
+        oHeaderModel.setProperty("/BomUsage", "1");
+
+        var oPayload = {
+          Material: oHeader.CopyMaterial,
+          Plant: oHeader.CopyPlant,
+          BomUsage: "1",
+          BillOfMaterialVariant: oHeader.CopyAltBom
+        };
+
+        return this._postAction(
+          "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.GetAlternateBOMItems",
+          oPayload
+        ).then(
+          function (oResponse) {
+            var aItems = this._convertAlternateBomItemsToRows(oResponse);
+
+            if (!aItems.length) {
+              oItemModel.setProperty("/items", []);
+
+              return Promise.reject({
+                message: "No BOM items found for the selected Copy From BOM."
+              });
+            }
+
+            oItemModel.setProperty("/items", aItems);
+            oItemModel.refresh(true);
+
+            if (bShowSuccessMessage) {
+              MessageToast.show(aItems.length + " BOM item(s) copied successfully.");
+            }
+
+            return aItems;
+          }.bind(this)
+        );
+      },
+
+      _convertAlternateBomItemsToRows: function (oResponse) {
+        var aResponseItems = [];
+
+        if (oResponse && Array.isArray(oResponse.value)) {
+          aResponseItems = oResponse.value;
+        }
+
+        aResponseItems = aResponseItems.filter(function (oItem) {
+          return oItem.Success && oItem.BillOfMaterialComponent;
+        });
+
+        aResponseItems.sort(function (a, b) {
+          return (
+            Number(a.BillOfMaterialItemNumber || 0) -
+            Number(b.BillOfMaterialItemNumber || 0)
+          );
+        });
+
+        return aResponseItems.map(
+          function (oItem, iIndex) {
+            return {
+              item: this._formatItemNumber(iIndex + 1),
+              component: this._formatComponentForDisplay(
+                oItem.BillOfMaterialComponent || ""
+              ),
+              description: "",
+              quantity: this._formatQuantityForDisplay(
+                oItem.BillOfMaterialItemQuantity
+              ),
+              uom: oItem.BillOfMaterialItemUnit || "",
+              sortString: "",
+              category: "L",
+              originalItemNumber: oItem.BillOfMaterialItemNumber || "",
+              isCopied: true
+            };
+          }.bind(this)
+        );
+      },
+
+      _formatItemNumber: function (iNumber) {
+        return String(iNumber).padStart(2, "0");
+      },
+
+      _formatQuantityForDisplay: function (vQuantity) {
+        var fQuantity = Number(vQuantity || 0);
+
+        if (!isFinite(fQuantity)) {
+          return "0.000";
+        }
+
+        return fQuantity.toFixed(3);
+      },
+
+      _formatComponentForDisplay: function (sComponent) {
+        sComponent = String(sComponent || "");
+
+        if (/^\d+$/.test(sComponent)) {
+          return sComponent.replace(/^0+/, "") || "0";
+        }
+
+        return sComponent;
+      },
 
       onMaterialValueHelp: function () {
         this._sMaterialTargetProperty = "/Material";
@@ -471,13 +619,147 @@ sap.ui.define(
         this._openMaterialValueHelp();
       },
 
+      onMaterialManualChange: function (oEvent) {
+        this._handleManualMaterialChange(oEvent, "/Material", true);
+      },
+
+      onCopyMaterialManualChange: function (oEvent) {
+        this._handleManualMaterialChange(oEvent, "/CopyMaterial", false);
+      },
+
+      _handleManualMaterialChange: function (
+        oEvent,
+        sTargetProperty,
+        bResetValidation
+      ) {
+        var that = this;
+        var oInput = oEvent.getSource();
+        var sValue = this._normalizeMaterialInput(oInput.getValue());
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+
+        if (!oHeaderModel) {
+          return;
+        }
+
+        oHeaderModel.setProperty("/BomUsage", "1");
+
+        if (!sValue) {
+          oInput.setValueState("None");
+          oInput.setValueStateText("");
+          oHeaderModel.setProperty(sTargetProperty, "");
+
+          if (bResetValidation) {
+            this.onHeaderFieldChange(oEvent);
+          } else {
+            this._clearCopiedItems();
+            this._syncHeaderToRoute();
+          }
+
+          return;
+        }
+
+        this._resolveMaterialFromValueHelp(sValue)
+          .then(function (oMatchedMaterial) {
+            oHeaderModel.setProperty("/BomUsage", "1");
+
+            if (!oMatchedMaterial) {
+              oInput.setValueState("Warning");
+              oInput.setValueStateText(
+                "Material does not exist in value help."
+              );
+
+              oHeaderModel.setProperty(sTargetProperty, sValue);
+
+              if (bResetValidation) {
+                oHeaderModel.setProperty("/IsValidated", false);
+                oHeaderModel.setProperty("/BaseUom", "");
+                oHeaderModel.setProperty("/AltBom", "");
+                oHeaderModel.setProperty(
+                  "/Message",
+                  "Material does not exist."
+                );
+                oHeaderModel.setProperty("/MessageType", "Warning");
+                oHeaderModel.setProperty("/ShowMessage", true);
+              }
+
+              that._clearCopiedItems();
+              that._syncHeaderToRoute();
+              return;
+            }
+
+            oInput.setValueState("None");
+            oInput.setValueStateText("");
+
+            oHeaderModel.setProperty(sTargetProperty, oMatchedMaterial.Product);
+
+            if (bResetValidation) {
+              that.onHeaderFieldChange(oEvent);
+            } else {
+              that._clearCopiedItems();
+              that._syncHeaderToRoute();
+            }
+          })
+          .catch(function (oError) {
+            MessageBox.error(that._getErrorText(oError));
+          });
+      },
+
+      _normalizeMaterialInput: function (sValue) {
+        return String(sValue || "").trim();
+      },
+
+      _findMaterialInLocalVH: function (sMaterial, oMaterialVHModel) {
+        var sSearch = this._normalizeMaterialInput(sMaterial).toUpperCase();
+        var aItems = [];
+
+        if (!sSearch || !oMaterialVHModel) {
+          return null;
+        }
+
+        aItems = oMaterialVHModel.getProperty("/items") || [];
+
+        return (
+          aItems.find(function (oItem) {
+            return String(oItem.Product || "").toUpperCase() === sSearch;
+          }) || null
+        );
+      },
+
+      _resolveMaterialFromValueHelp: function (sMaterial) {
+        var that = this;
+
+        sMaterial = this._normalizeMaterialInput(sMaterial);
+
+        if (!sMaterial) {
+          return Promise.resolve(null);
+        }
+
+        return this._loadMaterialVHData().then(function (oMaterialVHModel) {
+          return that._findMaterialInLocalVH(sMaterial, oMaterialVHModel);
+        });
+      },
+
+      _setInvalidMaterialMessage: function (sMessage) {
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+
+        if (!oHeaderModel) {
+          return;
+        }
+
+        oHeaderModel.setProperty("/BaseUom", "");
+        oHeaderModel.setProperty("/AltBom", "");
+        oHeaderModel.setProperty("/IsValidated", false);
+        oHeaderModel.setProperty("/Message", sMessage);
+        oHeaderModel.setProperty("/MessageType", "Error");
+        oHeaderModel.setProperty("/ShowMessage", true);
+        oHeaderModel.setProperty("/BomUsage", "1");
+
+        this._syncHeaderToRoute();
+      },
+
       _loadMaterialVHData: function () {
         var that = this;
 
-        /*
-         * If data is already loaded once, reuse it.
-         * This makes value help fast from second opening onwards.
-         */
         if (this._oMaterialVHModel) {
           return Promise.resolve(this._oMaterialVHModel);
         }
@@ -485,18 +767,14 @@ sap.ui.define(
         return new Promise(function (resolve, reject) {
           var oODataModel = that.getOwnerComponent().getModel();
 
-          /*
-           * OData V4 does not support oModel.read().
-           * Use bindList + requestContexts instead.
-           */
           var oListBinding = oODataModel.bindList(
             "/product_plant_vh",
             null,
             null,
             null,
             {
-              $select: "Product,ProductDescription",
-            },
+              $select: "Product,ProductDescription"
+            }
           );
 
           oListBinding
@@ -506,8 +784,20 @@ sap.ui.define(
                 return oContext.getObject();
               });
 
+              var oSeen = {};
+              var aUniqueResults = [];
+
+              aResults.forEach(function (oItem) {
+                var sProduct = String(oItem.Product || "");
+
+                if (sProduct && !oSeen[sProduct]) {
+                  oSeen[sProduct] = true;
+                  aUniqueResults.push(oItem);
+                }
+              });
+
               that._oMaterialVHModel = new JSONModel({
-                items: aResults,
+                items: aUniqueResults
               });
 
               resolve(that._oMaterialVHModel);
@@ -536,7 +826,7 @@ sap.ui.define(
 
                 if (sProduct) {
                   aFilters.push(
-                    new Filter("Product", FilterOperator.Contains, sProduct),
+                    new Filter("Product", FilterOperator.Contains, sProduct)
                   );
                 }
 
@@ -545,8 +835,8 @@ sap.ui.define(
                     new Filter(
                       "ProductDescription",
                       FilterOperator.Contains,
-                      sDescription,
-                    ),
+                      sDescription
+                    )
                   );
                 }
 
@@ -558,11 +848,11 @@ sap.ui.define(
               };
 
               oProductInput = new Input({
-                submit: fnDoSearch,
+                submit: fnDoSearch
               });
 
               oDescriptionInput = new Input({
-                submit: fnDoSearch,
+                submit: fnDoSearch
               });
 
               oFilterBar = new FilterBar({
@@ -577,16 +867,16 @@ sap.ui.define(
                     name: "Product",
                     label: "Product",
                     visibleInFilterBar: true,
-                    control: oProductInput,
+                    control: oProductInput
                   }),
                   new FilterGroupItem({
                     groupName: "basic",
                     name: "ProductDescription",
                     label: "Product Description",
                     visibleInFilterBar: true,
-                    control: oDescriptionInput,
-                  }),
-                ],
+                    control: oDescriptionInput
+                  })
+                ]
               });
 
               that._oMatProductInput = oProductInput;
@@ -600,15 +890,15 @@ sap.ui.define(
                 columns: [
                   new sap.m.Column({
                     header: new sap.m.Label({
-                      text: "Product",
-                    }),
+                      text: "Product"
+                    })
                   }),
                   new sap.m.Column({
                     header: new sap.m.Label({
-                      text: "Product Description",
-                    }),
-                  }),
-                ],
+                      text: "Product Description"
+                    })
+                  })
+                ]
               });
 
               that._oMatTable.bindItems({
@@ -617,13 +907,13 @@ sap.ui.define(
                   type: "Active",
                   cells: [
                     new sap.m.Text({
-                      text: "{materialVH>Product}",
+                      text: "{materialVH>Product}"
                     }),
                     new sap.m.Text({
-                      text: "{materialVH>ProductDescription}",
-                    }),
-                  ],
-                }),
+                      text: "{materialVH>ProductDescription}"
+                    })
+                  ]
+                })
               });
 
               that._oMatTable.attachItemPress(function (oEvent) {
@@ -662,15 +952,17 @@ sap.ui.define(
                   var sTargetProperty =
                     that._sMaterialTargetProperty || "/Material";
 
-                  if (sTargetProperty === "/CopyMaterial") {
-                    oHeaderModel.setProperty("/CopyMaterial", oData.Product);
-                  } else {
-                    oHeaderModel.setProperty("/Material", oData.Product);
-                  }
+                  oHeaderModel.setProperty(sTargetProperty, oData.Product);
+                  oHeaderModel.setProperty("/BomUsage", "1");
 
                   that._sMaterialTargetProperty = "/Material";
 
-                  that.onHeaderFieldChange();
+                  if (sTargetProperty === "/Material") {
+                    that.onHeaderFieldChange();
+                  } else {
+                    that._clearCopiedItems();
+                    that._syncHeaderToRoute();
+                  }
 
                   that._clearMaterialValueHelpSearch();
 
@@ -683,7 +975,7 @@ sap.ui.define(
                   that._clearMaterialValueHelpSearch();
 
                   that._oMatVHD.close();
-                },
+                }
               });
 
               that._oMatTable.setModel(oLocalModel, "materialVH");
@@ -692,11 +984,6 @@ sap.ui.define(
               that._oMatTable.setModel(oLocalModel, "materialVH");
             }
 
-            /*
-             * Important:
-             * Clear old search whenever opening value help.
-             * So Material search does not remain in Copy Material value help.
-             */
             that._clearMaterialValueHelpSearch();
 
             that._oMatVHD.open();
@@ -725,6 +1012,7 @@ sap.ui.define(
           }
         }
       },
+
       onPlantValueHelp: function () {
         this._sPlantTargetProperty = "/Plant";
         this._openPlantValueHelp();
@@ -738,10 +1026,6 @@ sap.ui.define(
       _loadPlantVHData: function () {
         var that = this;
 
-        /*
-         * If data is already loaded once, reuse it.
-         * This makes value help fast from second opening onwards.
-         */
         if (this._oPlantVHModel) {
           return Promise.resolve(this._oPlantVHModel);
         }
@@ -749,18 +1033,14 @@ sap.ui.define(
         return new Promise(function (resolve, reject) {
           var oODataModel = that.getOwnerComponent().getModel();
 
-          /*
-           * OData V4 does not support oModel.read().
-           * Use bindList + requestContexts instead.
-           */
           var oListBinding = oODataModel.bindList(
             "/plant_vh",
             null,
             null,
             null,
             {
-              $select: "Plant,PlantName",
-            },
+              $select: "Plant,PlantName"
+            }
           );
 
           oListBinding
@@ -771,7 +1051,7 @@ sap.ui.define(
               });
 
               that._oPlantVHModel = new JSONModel({
-                items: aResults,
+                items: aResults
               });
 
               resolve(that._oPlantVHModel);
@@ -800,7 +1080,7 @@ sap.ui.define(
 
                 if (sPlant) {
                   aFilters.push(
-                    new Filter("Plant", FilterOperator.Contains, sPlant),
+                    new Filter("Plant", FilterOperator.Contains, sPlant)
                   );
                 }
 
@@ -809,8 +1089,8 @@ sap.ui.define(
                     new Filter(
                       "PlantName",
                       FilterOperator.Contains,
-                      sPlantName,
-                    ),
+                      sPlantName
+                    )
                   );
                 }
 
@@ -822,11 +1102,11 @@ sap.ui.define(
               };
 
               oPlantInput = new Input({
-                submit: fnDoSearch,
+                submit: fnDoSearch
               });
 
               oPlantNameInput = new Input({
-                submit: fnDoSearch,
+                submit: fnDoSearch
               });
 
               oFilterBar = new FilterBar({
@@ -841,16 +1121,16 @@ sap.ui.define(
                     name: "Plant",
                     label: "Plant",
                     visibleInFilterBar: true,
-                    control: oPlantInput,
+                    control: oPlantInput
                   }),
                   new FilterGroupItem({
                     groupName: "basic",
                     name: "PlantName",
                     label: "Plant Name",
                     visibleInFilterBar: true,
-                    control: oPlantNameInput,
-                  }),
-                ],
+                    control: oPlantNameInput
+                  })
+                ]
               });
 
               that._oPlantInput = oPlantInput;
@@ -864,15 +1144,15 @@ sap.ui.define(
                 columns: [
                   new sap.m.Column({
                     header: new sap.m.Label({
-                      text: "Plant",
-                    }),
+                      text: "Plant"
+                    })
                   }),
                   new sap.m.Column({
                     header: new sap.m.Label({
-                      text: "Plant Name",
-                    }),
-                  }),
-                ],
+                      text: "Plant Name"
+                    })
+                  })
+                ]
               });
 
               that._oPlantTable.bindItems({
@@ -881,13 +1161,13 @@ sap.ui.define(
                   type: "Active",
                   cells: [
                     new sap.m.Text({
-                      text: "{plantVH>Plant}",
+                      text: "{plantVH>Plant}"
                     }),
                     new sap.m.Text({
-                      text: "{plantVH>PlantName}",
-                    }),
-                  ],
-                }),
+                      text: "{plantVH>PlantName}"
+                    })
+                  ]
+                })
               });
 
               that._oPlantTable.attachItemPress(function (oEvent) {
@@ -921,14 +1201,21 @@ sap.ui.define(
 
                   var sTargetProperty = that._sPlantTargetProperty || "/Plant";
 
-                  that
+                  var oHeaderModel = that
                     .getOwnerComponent()
-                    .getModel("headerModel")
-                    .setProperty(sTargetProperty, oData.Plant);
+                    .getModel("headerModel");
+
+                  oHeaderModel.setProperty(sTargetProperty, oData.Plant);
+                  oHeaderModel.setProperty("/BomUsage", "1");
 
                   that._sPlantTargetProperty = "/Plant";
 
-                  that.onHeaderFieldChange();
+                  if (sTargetProperty === "/Plant") {
+                    that.onHeaderFieldChange();
+                  } else {
+                    that._clearCopiedItems();
+                    that._syncHeaderToRoute();
+                  }
 
                   that._clearPlantValueHelpSearch();
 
@@ -941,7 +1228,7 @@ sap.ui.define(
                   that._clearPlantValueHelpSearch();
 
                   that._oPlantVHD.close();
-                },
+                }
               });
 
               that._oPlantTable.setModel(oLocalModel, "plantVH");
@@ -950,10 +1237,6 @@ sap.ui.define(
               that._oPlantTable.setModel(oLocalModel, "plantVH");
             }
 
-            /*
-             * Clear old search whenever opening value help.
-             * So Plant search does not remain in Copy Plant value help.
-             */
             that._clearPlantValueHelpSearch();
 
             that._oPlantVHD.open();
@@ -994,7 +1277,7 @@ sap.ui.define(
             method: "GET",
             headers: {
               "X-CSRF-Token": "Fetch",
-              Accept: "application/json",
+              Accept: "application/json"
             },
             success: function (data, textStatus, jqXHR) {
               var sToken = jqXHR.getResponseHeader("X-CSRF-Token");
@@ -1002,7 +1285,7 @@ sap.ui.define(
               if (!sToken) {
                 reject({
                   responseText:
-                    "CSRF token could not be fetched from service root.",
+                    "CSRF token could not be fetched from service root."
                 });
                 return;
               }
@@ -1013,7 +1296,7 @@ sap.ui.define(
                 contentType: "application/json",
                 headers: {
                   Accept: "application/json",
-                  "X-CSRF-Token": sToken,
+                  "X-CSRF-Token": sToken
                 },
                 data: JSON.stringify(oPayload || {}),
                 success: function (oData) {
@@ -1021,12 +1304,12 @@ sap.ui.define(
                 },
                 error: function (oXHR) {
                   reject(oXHR);
-                },
+                }
               });
             },
             error: function (oXHR) {
               reject(oXHR);
-            },
+            }
           });
         });
       },
@@ -1071,7 +1354,7 @@ sap.ui.define(
             "Unexpected error occurred."
           );
         }
-      },
+      }
     });
-  },
+  }
 );
