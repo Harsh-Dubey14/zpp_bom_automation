@@ -108,7 +108,6 @@
                                 enabled="{resultModel>/Editable}"
                             />
 
-
                             <Button
                                 text="Select All"
                                 icon="sap-icon://multi-select"
@@ -218,9 +217,19 @@
                                     placeholder="UoM"
                                 />
 
-                                <Input
+                                <!-- <Input
                                     value="{itemModel>sortString}"
                                     editable="{resultModel>/Editable}"
+                                    placeholder="Sort String"
+                                /> -->
+
+                                <Input
+                                    value="{itemModel>sortString}"
+                                    showValueHelp="true"
+                                    valueHelpRequest=".onSortStringValueHelp"
+                                    change=".onSortStringChange"
+                                    editable="{resultModel>/Editable}"
+                                    maxLength="10"
                                     placeholder="Sort String"
                                 />
 
@@ -249,7 +258,6 @@
                     press=".onSave"
                     enabled="{resultModel>/CanSave}"
                 />
-
 
                 <Button
                     text="New BOM"

@@ -1,5 +1,5 @@
 /* eslint-disable max-params */
-/* global jQuery, Promise */
+/* global jQuery, Promise, sap */
 
 sap.ui.define(
   [
@@ -194,9 +194,7 @@ sap.ui.define(
           aItems.splice(iIndex, 1);
         });
 
-        aItems.forEach(function (oItem, iIndex) {
-          oItem.item = String(iIndex + 1).padStart(2, "0");
-        });
+        this._renumberBomItems(aItems);
 
         oModel.setProperty("/items", aItems);
         oTable.removeSelections(true);
@@ -463,7 +461,8 @@ sap.ui.define(
                 ItemCategory: oItem.category || "L",
                 Component: oItem.component,
                 Quantity: Number(oItem.quantity),
-                Uom: oItem.uom
+                Uom: oItem.uom,
+                SortString: oItem.sortString || ""
               };
             }.bind(this)
           )
@@ -721,7 +720,10 @@ sap.ui.define(
                 that._getComponentDescription(oData)
               );
 
-              oItemModel.setProperty(sPath + "/uom", that._getComponentUom(oData));
+              oItemModel.setProperty(
+                sPath + "/uom",
+                that._getComponentUom(oData)
+              );
 
               resolve(true);
             })
@@ -1069,6 +1071,277 @@ sap.ui.define(
           this._oComponentTable.removeSelections(true);
 
           var oBinding = this._oComponentTable.getBinding("items");
+
+          if (oBinding) {
+            oBinding.filter([]);
+          }
+        }
+      },
+
+      onSortStringValueHelp: function (oEvent) {
+        var oInput = oEvent.getSource();
+
+        this._oCurrentSortStringContext = oInput.getBindingContext("itemModel");
+
+        if (!this._oCurrentSortStringContext) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
+
+        this._openSortStringValueHelp();
+      },
+
+      onSortStringChange: function (oEvent) {
+        var oInput = oEvent.getSource();
+        var oContext = oInput.getBindingContext("itemModel");
+        var sValue = String(oInput.getValue() || "").trim().toUpperCase();
+
+        oInput.setValue(sValue);
+
+        if (oContext) {
+          oContext
+            .getModel()
+            .setProperty(oContext.getPath() + "/sortString", sValue);
+        }
+      },
+
+      _openSortStringValueHelp: function () {
+        var that = this;
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sMaterial = oHeaderModel
+          ? oHeaderModel.getProperty("/Material")
+          : "";
+
+        sMaterial = String(sMaterial || "").trim().toUpperCase();
+
+        if (!sMaterial) {
+          MessageBox.warning("Please enter header material first.");
+          return;
+        }
+
+        var oODataModel = this.getOwnerComponent().getModel();
+
+        var oListBinding = oODataModel.bindList(
+          "/sort_string",
+          undefined,
+          undefined,
+          [new Filter("Style", FilterOperator.EQ, sMaterial)],
+          {
+            $select: "Zcomb"
+          }
+        );
+
+        BusyIndicator.show(0);
+
+        oListBinding
+          .requestContexts(0, 5000)
+          .then(function (aContexts) {
+            var aResults = aContexts.map(function (oContext) {
+              return oContext.getObject();
+            });
+
+            if (!aResults.length) {
+              MessageBox.warning(
+                "No sort string found for material " + sMaterial + "."
+              );
+              return;
+            }
+
+            var oSortStringModel = new JSONModel({
+              items: aResults
+            });
+
+            if (!that._oSortStringVHD) {
+              that._createSortStringValueHelpDialog();
+            }
+
+            that._oSortStringTable.setModel(oSortStringModel, "sortStringVH");
+            that._clearSortStringValueHelpSearch();
+            that._oSortStringVHD.open();
+          })
+          .catch(function (oError) {
+            MessageBox.error(that._getErrorText(oError));
+          })
+          .finally(function () {
+            BusyIndicator.hide();
+          });
+      },
+
+      _createSortStringValueHelpDialog: function () {
+        var that = this;
+        var oZcombInput;
+        var oFilterBar;
+
+        var fnDoSearch = function () {
+          var aFilters = [];
+          var sZcomb = String(oZcombInput.getValue() || "")
+            .trim()
+            .toUpperCase();
+
+          if (sZcomb) {
+            aFilters.push(new Filter("Zcomb", FilterOperator.Contains, sZcomb));
+          }
+
+          var oBinding = that._oSortStringTable.getBinding("items");
+
+          if (oBinding) {
+            oBinding.filter(aFilters);
+          }
+        };
+
+        oZcombInput = new Input({
+          liveChange: function (oEvent) {
+            var sValue = oEvent.getSource().getValue();
+
+            oEvent.getSource().setValue(sValue.toUpperCase());
+          },
+          submit: fnDoSearch
+        });
+
+        oFilterBar = new FilterBar({
+          showFilterConfiguration: false,
+          showGoOnFB: true,
+          filterBarExpanded: true,
+          useToolbar: true,
+          search: fnDoSearch,
+          filterGroupItems: [
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "Zcomb",
+              label: "Sort String",
+              visibleInFilterBar: true,
+              control: oZcombInput
+            })
+          ]
+        });
+
+        this._oSortStringInput = oZcombInput;
+
+        this._oSortStringTable = new sap.m.Table({
+          growing: true,
+          growingThreshold: 100,
+          mode: "MultiSelect",
+          includeItemInSelection: true,
+          columns: [
+            new sap.m.Column({
+              header: new sap.m.Label({
+                text: "Sort String"
+              })
+            })
+          ]
+        });
+
+        this._oSortStringTable.bindItems({
+          path: "sortStringVH>/items",
+          template: new sap.m.ColumnListItem({
+            type: "Active",
+            cells: [
+              new sap.m.Text({
+                text: "{sortStringVH>Zcomb}"
+              })
+            ]
+          })
+        });
+
+        this._oSortStringVHD = new ValueHelpDialog({
+          title: "Select Sort String",
+          supportMultiselect: true,
+          supportRanges: false,
+          filterBar: oFilterBar,
+          stretch: false,
+          contentWidth: "45%",
+          contentHeight: "55%",
+
+          ok: function () {
+            var aSelectedItems = that._oSortStringTable.getSelectedItems();
+
+            if (!aSelectedItems.length) {
+              MessageBox.error("Please select at least one sort string.");
+              return;
+            }
+
+            var aSelectedZcomb = aSelectedItems
+              .map(function (oSelectedItem) {
+                var oData = oSelectedItem
+                  .getBindingContext("sortStringVH")
+                  .getObject();
+
+                return String(oData.Zcomb || "").trim().toUpperCase();
+              })
+              .filter(function (sZcomb, iIndex, aArray) {
+                return sZcomb && aArray.indexOf(sZcomb) === iIndex;
+              });
+
+            if (!aSelectedZcomb.length) {
+              MessageBox.error("Selected sort string is blank.");
+              return;
+            }
+
+            that._applySortStringSelectionsToRow(aSelectedZcomb);
+            that._clearSortStringValueHelpSearch();
+            that._oSortStringVHD.close();
+          },
+
+          cancel: function () {
+            that._clearSortStringValueHelpSearch();
+            that._oSortStringVHD.close();
+          }
+        });
+
+        this._oSortStringVHD.setTable(this._oSortStringTable);
+      },
+
+      _applySortStringSelectionsToRow: function (aSelectedZcomb) {
+        var oContext = this._oCurrentSortStringContext;
+
+        if (!oContext) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
+
+        var oItemModel = oContext.getModel();
+        var sPath = oContext.getPath();
+        var iRowIndex = Number(sPath.split("/").pop());
+        var aItems = oItemModel.getProperty("/items") || [];
+
+        if (isNaN(iRowIndex) || !aItems[iRowIndex]) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
+
+        var oBaseRow = Object.assign({}, aItems[iRowIndex]);
+
+        aItems[iRowIndex].sortString = aSelectedZcomb[0];
+
+        for (var i = 1; i < aSelectedZcomb.length; i++) {
+          var oNewRow = Object.assign({}, oBaseRow, {
+            sortString: aSelectedZcomb[i]
+          });
+
+          aItems.splice(iRowIndex + i, 0, oNewRow);
+        }
+
+        this._renumberBomItems(aItems);
+
+        oItemModel.setProperty("/items", aItems);
+        oItemModel.refresh(true);
+      },
+
+      _renumberBomItems: function (aItems) {
+        aItems.forEach(function (oItem, iIndex) {
+          oItem.item = String(iIndex + 1).padStart(2, "0");
+        });
+      },
+
+      _clearSortStringValueHelpSearch: function () {
+        if (this._oSortStringInput) {
+          this._oSortStringInput.setValue("");
+        }
+
+        if (this._oSortStringTable) {
+          this._oSortStringTable.removeSelections(true);
+
+          var oBinding = this._oSortStringTable.getBinding("items");
 
           if (oBinding) {
             oBinding.filter([]);

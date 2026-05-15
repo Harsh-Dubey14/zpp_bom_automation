@@ -1,4 +1,4 @@
-/* global jQuery, Promise, sap */
+/* global jQuery, Promise */
 
 sap.ui.define(
   [
@@ -529,12 +529,7 @@ sap.ui.define(
 
         oHeaderModel.setProperty("/BomUsage", "1");
 
-        /*
-         * Important:
-         * Resolve Copy Material here also.
-         * This fixes the casing issue when user types material manually
-         * and directly clicks Load/Continue without leaving the field.
-         */
+       
         return this._resolveMaterialFromValueHelp(oHeader.CopyMaterial)
           .then(
             function (oMatchedMaterial) {
