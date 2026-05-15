@@ -58,15 +58,18 @@
   },
   "sap.ui5": {
     "flexEnabled": false,
+      "config": {
+    "fullWidth": true
+  },
     "dependencies": {
       "minUI5Version": "1.142.12",
-     "libs": {
-  "sap.m": {},
-  "sap.ui.core": {},
-  "sap.ui.layout": {},
-  "sap.ui.comp": {},
-  "sap.ui.export": {}
-}
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.ui.layout": {},
+        "sap.ui.comp": {},
+        "sap.ui.export": {}
+      }
     },
     "contentDensities": {
       "compact": true,
@@ -96,45 +99,41 @@
         }
       ]
     },
-"routing": {
-  "config": {
-    "routerClass": "sap.m.routing.Router",
-    "controlAggregation": "pages",
-    "controlId": "app",
-    "transition": "slide",
-    "type": "View",
-    "viewType": "XML",
-    "path": "zppbomautomation.view",
-    "async": true,
-    "viewPath": "zppbomautomation.view"
-  },
-  "routes": [
-    {
-      "name": "RouteView1",
-      "pattern": ":?query:",
-      "target": [
-        "TargetView1"
-      ]
+    "routing": {
+      "config": {
+        "routerClass": "sap.m.routing.Router",
+        "controlAggregation": "pages",
+        "controlId": "app",
+        "transition": "slide",
+        "type": "View",
+        "viewType": "XML",
+        "path": "zppbomautomation.view",
+        "async": true,
+        "viewPath": "zppbomautomation.view"
+      },
+      "routes": [
+        {
+          "name": "RouteView1",
+          "pattern": ":?query:",
+          "target": ["TargetView1"]
+        },
+        {
+          "name": "RouteBOMItem",
+          "pattern": "BOMItem",
+          "target": ["TargetBOMItem"]
+        }
+      ],
+      "targets": {
+        "TargetView1": {
+          "id": "View1",
+          "name": "View1"
+        },
+        "TargetBOMItem": {
+          "id": "BOMItem",
+          "name": "BOMItem"
+        }
+      }
     },
-    {
-      "name": "RouteBOMItem",
-      "pattern": "BOMItem",
-      "target": [
-        "TargetBOMItem"
-      ]
-    }
-  ],
-  "targets": {
-    "TargetView1": {
-      "id": "View1",
-      "name": "View1"
-    },
-    "TargetBOMItem": {
-      "id": "BOMItem",
-      "name": "BOMItem"
-    }
-  }
-},
     "rootView": {
       "viewName": "zppbomautomation.view.App",
       "type": "XML",

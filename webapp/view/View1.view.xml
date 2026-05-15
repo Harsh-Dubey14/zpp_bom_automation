@@ -217,6 +217,7 @@
                             <Input
                                 id="inpCopyAltBom"
                                 value="{headerModel>/CopyAltBom}"
+                                type="Number"
                                 liveChange=".onHeaderFieldChange"
                                 maxLength="2"
                                 placeholder="Enter Copy Alt BOM"

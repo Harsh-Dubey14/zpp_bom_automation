@@ -7,7 +7,6 @@ sap.ui.define(
     "sap/ui/core/routing/History",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
-    "sap/ui/export/Spreadsheet",
     "sap/ui/model/json/JSONModel",
     "sap/ui/comp/valuehelpdialog/ValueHelpDialog",
     "sap/ui/comp/filterbar/FilterBar",
@@ -22,7 +21,6 @@ sap.ui.define(
     History,
     MessageToast,
     MessageBox,
-    Spreadsheet,
     JSONModel,
     ValueHelpDialog,
     FilterBar,
@@ -48,7 +46,6 @@ sap.ui.define(
           BillOfMaterial: "",
           CreatedBomVariant: "",
           CanSave: true,
-          CanRetry: false,
           Editable: true
         });
 
@@ -111,37 +108,36 @@ sap.ui.define(
           BillOfMaterial: "",
           CreatedBomVariant: "",
           CanSave: true,
-          CanRetry: false,
           Editable: true
         });
       },
 
-  onNavBack: function () {
-  var oResultModel = this.getView().getModel("resultModel");
-  var sStatus = oResultModel ? oResultModel.getProperty("/Status") : "";
+      onNavBack: function () {
+        var oResultModel = this.getView().getModel("resultModel");
+        var sStatus = oResultModel ? oResultModel.getProperty("/Status") : "";
 
-  if (sStatus === "SUCCESS") {
-    this._clearBomDraftData();
+        if (sStatus === "SUCCESS") {
+          this._clearBomDraftData();
 
-    this.getOwnerComponent().getRouter().navTo(
-      "RouteView1",
-      {
-        "?query": {}
+          this.getOwnerComponent().getRouter().navTo(
+            "RouteView1",
+            {
+              "?query": {}
+            },
+            true
+          );
+
+          return;
+        }
+
+        var sPreviousHash = History.getInstance().getPreviousHash();
+
+        if (sPreviousHash !== undefined) {
+          window.history.go(-1);
+        } else {
+          this.getOwnerComponent().getRouter().navTo("RouteView1", {}, true);
+        }
       },
-      true
-    );
-
-    return;
-  }
-
-  var sPreviousHash = History.getInstance().getPreviousHash();
-
-  if (sPreviousHash !== undefined) {
-    window.history.go(-1);
-  } else {
-    this.getOwnerComponent().getRouter().navTo("RouteView1", {}, true);
-  }
-},
 
       onAddRow: function () {
         var oModel = this.getOwnerComponent().getModel("itemModel");
@@ -152,7 +148,6 @@ sap.ui.define(
         }
 
         var aItems = oModel.getProperty("/items") || [];
-
         var iNextItem = 1;
 
         if (aItems.length > 0) {
@@ -499,7 +494,6 @@ sap.ui.define(
           oResultModel.setProperty("/StatusState", "Success");
           oResultModel.setProperty("/MessageType", "Success");
           oResultModel.setProperty("/CanSave", false);
-          oResultModel.setProperty("/CanRetry", false);
           oResultModel.setProperty("/Editable", false);
 
           var sSuccessMessage = sBillOfMaterial
@@ -514,7 +508,6 @@ sap.ui.define(
           oResultModel.setProperty("/StatusState", "Error");
           oResultModel.setProperty("/MessageType", "Error");
           oResultModel.setProperty("/CanSave", true);
-          oResultModel.setProperty("/CanRetry", !!sBomId);
           oResultModel.setProperty("/Editable", true);
 
           MessageBox.error(sMessage || "BOM creation failed.");
@@ -524,7 +517,6 @@ sap.ui.define(
         oResultModel.setProperty("/StatusState", "Warning");
         oResultModel.setProperty("/MessageType", "Warning");
         oResultModel.setProperty("/CanSave", true);
-        oResultModel.setProperty("/CanRetry", !!sBomId);
         oResultModel.setProperty("/Editable", true);
 
         MessageBox.warning(
@@ -532,182 +524,42 @@ sap.ui.define(
         );
       },
 
-      onRetrySubmit: async function () {
-        var oResultModel = this.getView().getModel("resultModel");
+      onCancel: function () {
+        var that = this;
 
-        try {
-          var sBomId = oResultModel.getProperty("/BomId");
+        MessageBox.warning(
+          "Are you sure you want to cancel? All item data will be lost.",
+          {
+            actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+            emphasizedAction: MessageBox.Action.OK,
 
-          if (!sBomId) {
-            MessageBox.error("Cannot retry because BOM Request ID is missing.");
-            return;
+            onClose: function (sAction) {
+              if (sAction === MessageBox.Action.OK) {
+                that._clearBomDraftData();
+
+                that.getOwnerComponent().getRouter().navTo(
+                  "RouteView1",
+                  {
+                    "?query": {}
+                  },
+                  true
+                );
+              }
+            }
           }
-
-          oResultModel.setProperty("/Message", "Retrying BOM submit...");
-          oResultModel.setProperty("/MessageType", "Information");
-          oResultModel.setProperty("/ShowMessage", true);
-
-          BusyIndicator.show(0);
-
-          var sActionPath = this._buildSubmitActionPath(sBomId);
-          var oResponse = await this._postAction(sActionPath, {});
-
-          this._handleCreateResponse(oResponse);
-        } catch (oError) {
-          var sErrorText = this._getErrorText(oError);
-
-          oResultModel.setProperty("/Message", sErrorText);
-          oResultModel.setProperty("/MessageType", "Error");
-          oResultModel.setProperty("/ShowMessage", true);
-
-          MessageBox.error(sErrorText);
-        } finally {
-          BusyIndicator.hide();
-        }
-      },
-
-      _buildSubmitActionPath: function (sBomId) {
-        return (
-          "/BomCreate(" +
-          encodeURIComponent(sBomId) +
-          ")/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.SubmitBOM"
         );
       },
 
-      onCancel: function () {
-  var that = this;
-
-  MessageBox.warning(
-    "Are you sure you want to cancel? All item data will be lost.",
-    {
-      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-      emphasizedAction: MessageBox.Action.OK,
-
-      onClose: function (sAction) {
-        if (sAction === MessageBox.Action.OK) {
-          that._clearBomDraftData();
-
-          that.getOwnerComponent().getRouter().navTo(
-            "RouteView1",
-            {
-              "?query": {}
-            },
-            true
-          );
-        }
-      }
-    }
-  );
-},
-
       onNewBOM: function () {
-  this._clearBomDraftData();
+        this._clearBomDraftData();
 
-  this.getOwnerComponent().getRouter().navTo(
-    "RouteView1",
-    {
-      "?query": {}
-    },
-    true
-  );
-},
-
-      onExportExcel: function () {
-        var oTable = this.byId("bomItemsTable");
-        var aSelectedItems = oTable.getSelectedItems();
-
-        if (aSelectedItems.length === 0) {
-          MessageToast.show("Please select items to export");
-          return;
-        }
-
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-
-        if (!oHeaderModel) {
-          MessageBox.error("Header data is missing.");
-          return;
-        }
-
-        var oHeader = oHeaderModel.getData();
-
-        var aExportData = aSelectedItems.map(function (oItem) {
-          var oData = oItem.getBindingContext("itemModel").getObject();
-
-          return {
-            Material: oHeader.Material,
-            Plant: oHeader.Plant,
-            BomUsage: oHeader.BomUsage || "1",
-            AltBom: oHeader.AltBom,
-            item: oData.item,
-            component: oData.component,
-            description: oData.description,
-            quantity: oData.quantity,
-            uom: oData.uom,
-            sortString: oData.sortString,
-            category: oData.category
-          };
-        });
-
-        var aCols = [
+        this.getOwnerComponent().getRouter().navTo(
+          "RouteView1",
           {
-            label: "Material",
-            property: "Material"
+            "?query": {}
           },
-          {
-            label: "Plant",
-            property: "Plant"
-          },
-          {
-            label: "BOM Usage",
-            property: "BomUsage"
-          },
-          {
-            label: "Alternative BOM",
-            property: "AltBom"
-          },
-          {
-            label: "Item",
-            property: "item"
-          },
-          {
-            label: "Component",
-            property: "component"
-          },
-          {
-            label: "Description",
-            property: "description"
-          },
-          {
-            label: "Quantity",
-            property: "quantity"
-          },
-          {
-            label: "UoM",
-            property: "uom"
-          },
-          {
-            label: "Sort String",
-            property: "sortString"
-          },
-          {
-            label: "Category",
-            property: "category"
-          }
-        ];
-
-        var oSettings = {
-          workbook: {
-            columns: aCols
-          },
-          dataSource: aExportData,
-          fileName: "BOM_Items.xlsx"
-        };
-
-        var oSpreadsheet = new Spreadsheet(oSettings);
-
-        oSpreadsheet.build().then(function () {
-          MessageToast.show("Excel downloaded");
-        });
+          true
+        );
       },
 
       onComponentChange: async function (oEvent) {
@@ -1264,42 +1116,44 @@ sap.ui.define(
           return aMatch ? aMatch[1] : "";
         }
       },
-_clearBomDraftData: function () {
-  var sToday = new Date().toISOString().slice(0, 10);
 
-  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+      _clearBomDraftData: function () {
+        var sToday = new Date().toISOString().slice(0, 10);
 
-  if (oHeaderModel) {
-    oHeaderModel.setData({
-      Material: "",
-      Plant: "",
-      BomUsage: "1",
-      AltBom: "",
-      BaseQty: 1,
-      ValidFrom: sToday,
-      BaseUom: "",
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
-      CopyMaterial: "",
-      CopyPlant: "",
-      CopyAltBom: "",
+        if (oHeaderModel) {
+          oHeaderModel.setData({
+            Material: "",
+            Plant: "",
+            BomUsage: "1",
+            AltBom: "",
+            BaseQty: 1,
+            ValidFrom: sToday,
+            BaseUom: "",
 
-      IsValidated: false,
-      Message: "",
-      MessageType: "Information",
-      ShowMessage: false
-    });
-  }
+            CopyMaterial: "",
+            CopyPlant: "",
+            CopyAltBom: "",
 
-  var oItemModel = this.getOwnerComponent().getModel("itemModel");
+            IsValidated: false,
+            Message: "",
+            MessageType: "Information",
+            ShowMessage: false
+          });
+        }
 
-  if (oItemModel) {
-    oItemModel.setData({
-      items: []
-    });
-  }
+        var oItemModel = this.getOwnerComponent().getModel("itemModel");
 
-  this._resetResultModel();
-},
+        if (oItemModel) {
+          oItemModel.setData({
+            items: []
+          });
+        }
+
+        this._resetResultModel();
+      },
+
       _postAction: function (sRelativePath, oPayload) {
         var oModel = this.getOwnerComponent().getModel();
         var sServiceUrl = oModel.getServiceUrl().replace(/\/$/, "");

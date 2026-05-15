@@ -108,11 +108,6 @@
                                 enabled="{resultModel>/Editable}"
                             />
 
-                            <Button
-                                text="Export Excel"
-                                icon="sap-icon://excel-attachment"
-                                press=".onExportExcel"
-                            />
 
                             <Button
                                 text="Select All"
@@ -255,13 +250,6 @@
                     enabled="{resultModel>/CanSave}"
                 />
 
-                <Button
-                    text="Retry Submit"
-                    type="Attention"
-                    icon="sap-icon://restart"
-                    press=".onRetrySubmit"
-                    enabled="{resultModel>/CanRetry}"
-                />
 
                 <Button
                     text="New BOM"
