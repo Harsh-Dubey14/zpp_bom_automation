@@ -36,6 +36,9 @@ sap.ui.define(
       onInit: function () {
         this._initSharedItemModel();
 
+        this._sSortStringVHMaterial = "";
+        this._oSortStringVHModel = null;
+
         var oResultModel = new JSONModel({
           BomId: "",
           Status: "",
@@ -207,6 +210,12 @@ sap.ui.define(
 
         oTable.selectAll();
         MessageToast.show("All items selected");
+      },
+
+      _renumberBomItems: function (aItems) {
+        for (var i = 0; i < aItems.length; i++) {
+          aItems[i].item = String(i + 1).padStart(2, "0");
+        }
       },
 
       onQuantityLiveChange: function (oEvent) {
@@ -1119,22 +1128,40 @@ sap.ui.define(
           return;
         }
 
+        if (
+          this._oSortStringVHModel &&
+          this._sSortStringVHMaterial === sMaterial
+        ) {
+          if (!this._oSortStringVHD) {
+            this._createSortStringValueHelpDialog();
+          }
+
+          this._oSortStringTable.setModel(
+            this._oSortStringVHModel,
+            "sortStringVH"
+          );
+
+          this._clearSortStringValueHelpSearch();
+          this._oSortStringVHD.open();
+          return;
+        }
+
         var oODataModel = this.getOwnerComponent().getModel();
 
         var oListBinding = oODataModel.bindList(
           "/sort_string",
           undefined,
           undefined,
-          [new Filter("Style", FilterOperator.EQ, sMaterial)],
+          [new Filter("Product", FilterOperator.EQ, sMaterial)],
           {
-            $select: "Zcomb"
+            $select: "Product,Style,Zcomb,ColorName"
           }
         );
 
         BusyIndicator.show(0);
 
         oListBinding
-          .requestContexts(0, 5000)
+          .requestContexts(0, 200)
           .then(function (aContexts) {
             var aResults = aContexts.map(function (oContext) {
               return oContext.getObject();
@@ -1142,12 +1169,13 @@ sap.ui.define(
 
             if (!aResults.length) {
               MessageBox.warning(
-                "No sort string found for material " + sMaterial + "."
+                "No sort string found for product " + sMaterial + "."
               );
               return;
             }
 
-            var oSortStringModel = new JSONModel({
+            that._sSortStringVHMaterial = sMaterial;
+            that._oSortStringVHModel = new JSONModel({
               items: aResults
             });
 
@@ -1155,7 +1183,11 @@ sap.ui.define(
               that._createSortStringValueHelpDialog();
             }
 
-            that._oSortStringTable.setModel(oSortStringModel, "sortStringVH");
+            that._oSortStringTable.setModel(
+              that._oSortStringVHModel,
+              "sortStringVH"
+            );
+
             that._clearSortStringValueHelpSearch();
             that._oSortStringVHD.open();
           })
@@ -1169,17 +1201,53 @@ sap.ui.define(
 
       _createSortStringValueHelpDialog: function () {
         var that = this;
+        var oProductInput;
+        var oStyleInput;
         var oZcombInput;
+        var oColorNameInput;
         var oFilterBar;
 
         var fnDoSearch = function () {
           var aFilters = [];
+
+          var sProduct = String(oProductInput.getValue() || "")
+            .trim()
+            .toUpperCase();
+
+          var sStyle = String(oStyleInput.getValue() || "")
+            .trim()
+            .toUpperCase();
+
           var sZcomb = String(oZcombInput.getValue() || "")
             .trim()
             .toUpperCase();
 
+          var sColorName = String(oColorNameInput.getValue() || "")
+            .trim()
+            .toUpperCase();
+
+          if (sProduct) {
+            aFilters.push(
+              new Filter("Product", FilterOperator.Contains, sProduct)
+            );
+          }
+
+          if (sStyle) {
+            aFilters.push(
+              new Filter("Style", FilterOperator.Contains, sStyle)
+            );
+          }
+
           if (sZcomb) {
-            aFilters.push(new Filter("Zcomb", FilterOperator.Contains, sZcomb));
+            aFilters.push(
+              new Filter("Zcomb", FilterOperator.Contains, sZcomb)
+            );
+          }
+
+          if (sColorName) {
+            aFilters.push(
+              new Filter("ColorName", FilterOperator.Contains, sColorName)
+            );
           }
 
           var oBinding = that._oSortStringTable.getBinding("items");
@@ -1189,7 +1257,34 @@ sap.ui.define(
           }
         };
 
+        oProductInput = new Input({
+          liveChange: function (oEvent) {
+            var sValue = oEvent.getSource().getValue();
+
+            oEvent.getSource().setValue(sValue.toUpperCase());
+          },
+          submit: fnDoSearch
+        });
+
+        oStyleInput = new Input({
+          liveChange: function (oEvent) {
+            var sValue = oEvent.getSource().getValue();
+
+            oEvent.getSource().setValue(sValue.toUpperCase());
+          },
+          submit: fnDoSearch
+        });
+
         oZcombInput = new Input({
+          liveChange: function (oEvent) {
+            var sValue = oEvent.getSource().getValue();
+
+            oEvent.getSource().setValue(sValue.toUpperCase());
+          },
+          submit: fnDoSearch
+        });
+
+        oColorNameInput = new Input({
           liveChange: function (oEvent) {
             var sValue = oEvent.getSource().getValue();
 
@@ -1207,15 +1302,39 @@ sap.ui.define(
           filterGroupItems: [
             new FilterGroupItem({
               groupName: "basic",
+              name: "Product",
+              label: "Product",
+              visibleInFilterBar: true,
+              control: oProductInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "Style",
+              label: "Style",
+              visibleInFilterBar: true,
+              control: oStyleInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
               name: "Zcomb",
               label: "Sort String",
               visibleInFilterBar: true,
               control: oZcombInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "ColorName",
+              label: "Color Name",
+              visibleInFilterBar: true,
+              control: oColorNameInput
             })
           ]
         });
 
+        this._oSortStringProductInput = oProductInput;
+        this._oSortStringStyleInput = oStyleInput;
         this._oSortStringInput = oZcombInput;
+        this._oSortStringColorNameInput = oColorNameInput;
 
         this._oSortStringTable = new sap.m.Table({
           growing: true,
@@ -1225,7 +1344,22 @@ sap.ui.define(
           columns: [
             new sap.m.Column({
               header: new sap.m.Label({
+                text: "Product"
+              })
+            }),
+            new sap.m.Column({
+              header: new sap.m.Label({
+                text: "Style"
+              })
+            }),
+            new sap.m.Column({
+              header: new sap.m.Label({
                 text: "Sort String"
+              })
+            }),
+            new sap.m.Column({
+              header: new sap.m.Label({
+                text: "Color Name"
               })
             })
           ]
@@ -1237,7 +1371,16 @@ sap.ui.define(
             type: "Active",
             cells: [
               new sap.m.Text({
+                text: "{sortStringVH>Product}"
+              }),
+              new sap.m.Text({
+                text: "{sortStringVH>Style}"
+              }),
+              new sap.m.Text({
                 text: "{sortStringVH>Zcomb}"
+              }),
+              new sap.m.Text({
+                text: "{sortStringVH>ColorName}"
               })
             ]
           })
@@ -1249,8 +1392,8 @@ sap.ui.define(
           supportRanges: false,
           filterBar: oFilterBar,
           stretch: false,
-          contentWidth: "45%",
-          contentHeight: "55%",
+          contentWidth: "75%",
+          contentHeight: "60%",
 
           ok: function () {
             var aSelectedItems = that._oSortStringTable.getSelectedItems();
@@ -1327,15 +1470,21 @@ sap.ui.define(
         oItemModel.refresh(true);
       },
 
-      _renumberBomItems: function (aItems) {
-        aItems.forEach(function (oItem, iIndex) {
-          oItem.item = String(iIndex + 1).padStart(2, "0");
-        });
-      },
-
       _clearSortStringValueHelpSearch: function () {
+        if (this._oSortStringProductInput) {
+          this._oSortStringProductInput.setValue("");
+        }
+
+        if (this._oSortStringStyleInput) {
+          this._oSortStringStyleInput.setValue("");
+        }
+
         if (this._oSortStringInput) {
           this._oSortStringInput.setValue("");
+        }
+
+        if (this._oSortStringColorNameInput) {
+          this._oSortStringColorNameInput.setValue("");
         }
 
         if (this._oSortStringTable) {
@@ -1346,6 +1495,20 @@ sap.ui.define(
           if (oBinding) {
             oBinding.filter([]);
           }
+        }
+      },
+
+      _clearSortStringCache: function () {
+        this._sSortStringVHMaterial = "";
+        this._oSortStringVHModel = null;
+
+        if (this._oSortStringTable) {
+          this._oSortStringTable.setModel(
+            new JSONModel({
+              items: []
+            }),
+            "sortStringVH"
+          );
         }
       },
 
@@ -1392,6 +1555,8 @@ sap.ui.define(
 
       _clearBomDraftData: function () {
         var sToday = new Date().toISOString().slice(0, 10);
+
+        this._clearSortStringCache();
 
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
