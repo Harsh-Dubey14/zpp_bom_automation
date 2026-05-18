@@ -463,6 +463,7 @@ sap.ui.define(
           AltBom: oHeader.AltBom,
           BaseQty: Number(oHeader.BaseQty || 1),
           ValidFrom: oHeader.ValidFrom,
+            BomStatus: oHeader.BomStatus || "2",
           _Item: aItems.map(
             function (oItem, iIndex) {
               return {
@@ -1569,6 +1570,7 @@ sap.ui.define(
             BaseQty: 1,
             ValidFrom: sToday,
             BaseUom: "",
+            BomStatus: "2",
 
             CopyMaterial: "",
             CopyPlant: "",

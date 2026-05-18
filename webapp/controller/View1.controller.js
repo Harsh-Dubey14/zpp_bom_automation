@@ -63,6 +63,8 @@ sap.ui.define(
             BaseQty: oQuery.BaseQty ? Number(oQuery.BaseQty) : 1,
             ValidFrom: oQuery.ValidFrom || sToday,
             BaseUom: oQuery.BaseUom || "",
+            BomStatus: oQuery.BomStatus || "2",
+         
 
             CopyMaterial: oQuery.CopyMaterial || "",
             CopyPlant: oQuery.CopyPlant || "",
@@ -102,6 +104,7 @@ sap.ui.define(
             BaseQty: 1,
             ValidFrom: sToday,
             BaseUom: "",
+              BomStatus: "2",
 
             CopyMaterial: "",
             CopyPlant: "",
@@ -142,6 +145,7 @@ sap.ui.define(
           BaseQty: 1,
           ValidFrom: sToday,
           BaseUom: "",
+              BomStatus: "2",
 
           CopyMaterial: "",
           CopyPlant: "",
@@ -199,6 +203,7 @@ sap.ui.define(
                 BaseQty: String(oHeader.BaseQty || 1),
                 ValidFrom: oHeader.ValidFrom || "",
                 BaseUom: oHeader.BaseUom || "",
+                 BomStatus: oHeader.BomStatus || "2",
 
                 CopyMaterial: oHeader.CopyMaterial || "",
                 CopyPlant: oHeader.CopyPlant || "",
