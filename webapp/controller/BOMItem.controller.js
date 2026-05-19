@@ -463,7 +463,7 @@ sap.ui.define(
           AltBom: oHeader.AltBom,
           BaseQty: Number(oHeader.BaseQty || 1),
           ValidFrom: oHeader.ValidFrom,
-            BomStatus: oHeader.BomStatus || "2",
+          BomStatus: oHeader.BomStatus || "2",
           _Item: aItems.map(
             function (oItem, iIndex) {
               return {
@@ -1155,7 +1155,7 @@ sap.ui.define(
           undefined,
           [new Filter("Product", FilterOperator.EQ, sMaterial)],
           {
-            $select: "Product,Style,Zcomb,ColorName"
+            $select: "Product,Style,Zcomb,ColorName,sizes"
           }
         );
 
@@ -1206,6 +1206,7 @@ sap.ui.define(
         var oStyleInput;
         var oZcombInput;
         var oColorNameInput;
+        var oSizesInput;
         var oFilterBar;
 
         var fnDoSearch = function () {
@@ -1224,6 +1225,10 @@ sap.ui.define(
             .toUpperCase();
 
           var sColorName = String(oColorNameInput.getValue() || "")
+            .trim()
+            .toUpperCase();
+
+          var sSizes = String(oSizesInput.getValue() || "")
             .trim()
             .toUpperCase();
 
@@ -1248,6 +1253,12 @@ sap.ui.define(
           if (sColorName) {
             aFilters.push(
               new Filter("ColorName", FilterOperator.Contains, sColorName)
+            );
+          }
+
+          if (sSizes) {
+            aFilters.push(
+              new Filter("sizes", FilterOperator.Contains, sSizes)
             );
           }
 
@@ -1294,6 +1305,15 @@ sap.ui.define(
           submit: fnDoSearch
         });
 
+        oSizesInput = new Input({
+          liveChange: function (oEvent) {
+            var sValue = oEvent.getSource().getValue();
+
+            oEvent.getSource().setValue(sValue.toUpperCase());
+          },
+          submit: fnDoSearch
+        });
+
         oFilterBar = new FilterBar({
           showFilterConfiguration: false,
           showGoOnFB: true,
@@ -1328,6 +1348,13 @@ sap.ui.define(
               label: "Color Name",
               visibleInFilterBar: true,
               control: oColorNameInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "sizes",
+              label: "Sizes",
+              visibleInFilterBar: true,
+              control: oSizesInput
             })
           ]
         });
@@ -1336,6 +1363,7 @@ sap.ui.define(
         this._oSortStringStyleInput = oStyleInput;
         this._oSortStringInput = oZcombInput;
         this._oSortStringColorNameInput = oColorNameInput;
+        this._oSortStringSizesInput = oSizesInput;
 
         this._oSortStringTable = new sap.m.Table({
           growing: true,
@@ -1362,6 +1390,11 @@ sap.ui.define(
               header: new sap.m.Label({
                 text: "Color Name"
               })
+            }),
+            new sap.m.Column({
+              header: new sap.m.Label({
+                text: "Sizes"
+              })
             })
           ]
         });
@@ -1382,9 +1415,20 @@ sap.ui.define(
               }),
               new sap.m.Text({
                 text: "{sortStringVH>ColorName}"
+              }),
+              new sap.m.Text({
+                text: "{sortStringVH>sizes}"
               })
             ]
           })
+        });
+
+        this._oSortStringTable.attachItemPress(function (oEvent) {
+          var oItem = oEvent.getParameter("listItem");
+
+          if (oItem) {
+            that._oSortStringTable.setSelectedItem(oItem, true);
+          }
         });
 
         this._oSortStringVHD = new ValueHelpDialog({
@@ -1486,6 +1530,10 @@ sap.ui.define(
 
         if (this._oSortStringColorNameInput) {
           this._oSortStringColorNameInput.setValue("");
+        }
+
+        if (this._oSortStringSizesInput) {
+          this._oSortStringSizesInput.setValue("");
         }
 
         if (this._oSortStringTable) {
