@@ -66,7 +66,6 @@ sap.ui.define(
 
       _resetHeaderAndItemDraftData: function (oHeaderModel) {
         HeaderModel.reset(oHeaderModel);
-
         ItemModel.reset(this.getOwnerComponent().getModel("itemModel"));
       },
 
@@ -91,9 +90,7 @@ sap.ui.define(
                 Plant: oHeader.Plant || "",
                 BomUsage: Constants.BOM_USAGE,
                 AltBom: oHeader.AltBom || "",
-                BaseQty: String(
-                  oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY
-                ),
+                BaseQty: String(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY),
                 ValidFrom: oHeader.ValidFrom || "",
                 BaseUom: oHeader.BaseUom || "",
                 BomStatus: oHeader.BomStatus || Constants.BOM_STATUS,
@@ -204,9 +201,7 @@ sap.ui.define(
 
           this._syncHeaderToRoute();
 
-          this.getOwnerComponent()
-            .getRouter()
-            .navTo(Constants.ROUTES.ITEM);
+          this.getOwnerComponent().getRouter().navTo(Constants.ROUTES.ITEM);
         } catch (oError) {
           MessageBox.error(this._getErrorText(oError));
         }
@@ -230,33 +225,32 @@ sap.ui.define(
         }
 
         try {
-          var oMatchedMaterial = await this._resolveMaterialFromValueHelp(
-            oHeader.Material
+          /*
+           * This fixes both cases:
+           * 1. Wrong case input like bc-aaron -> BC-AARON using value help.
+           * 2. Numeric input like 52 -> 000000000000000052 using fallback padding.
+           *
+           * Value help is used only for correction.
+           * Backend validation remains the final authority.
+           */
+          var sBackendMaterial = await this._resolveBackendMaterial(
+            oHeaderModel.getProperty("/Material")
           );
 
-          if (!oMatchedMaterial) {
-            this._setInvalidMaterialMessage(
-              "Material does not exist. Please enter or select a valid material."
-            );
-
-            MessageBox.error(
-              "Material does not exist. Please enter or select a valid material."
-            );
-            return;
-          }
-
-          oHeaderModel.setProperty("/Material", oMatchedMaterial.Product);
+          oHeaderModel.setProperty("/Material", sBackendMaterial);
           oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-          oHeader.Material = oMatchedMaterial.Product;
+          oHeader.Material = sBackendMaterial;
           oHeader.BomUsage = Constants.BOM_USAGE;
 
           this._syncHeaderToRoute();
 
+          // console.log("VALIDATE BACKEND MATERIAL:", sBackendMaterial);
+
           var oValidateResponse = await BomActionService.validateMaterialPlant(
             this.getOwnerComponent().getModel(),
             {
-              Material: oHeader.Material,
+              Material: sBackendMaterial,
               Plant: oHeader.Plant
             }
           );
@@ -287,7 +281,7 @@ sap.ui.define(
           var oAltBomResponse = await BomActionService.getNextAltBOM(
             this.getOwnerComponent().getModel(),
             {
-              Material: oHeader.Material,
+              Material: sBackendMaterial,
               Plant: oHeader.Plant,
               BomUsage: Constants.BOM_USAGE
             }
@@ -389,10 +383,7 @@ sap.ui.define(
         }
 
         if (!oItemModel) {
-          oItemModel = ItemModel.init(
-            this.getOwnerComponent(),
-            this.getView()
-          );
+          oItemModel = ItemModel.init(this.getOwnerComponent(), this.getView());
         }
 
         var oHeader = oHeaderModel.getData();
@@ -410,29 +401,22 @@ sap.ui.define(
 
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-        return this._resolveMaterialFromValueHelp(oHeader.CopyMaterial)
+        return this._resolveBackendMaterial(oHeader.CopyMaterial)
           .then(
-            function (oMatchedMaterial) {
-              if (!oMatchedMaterial) {
-                return Promise.reject({
-                  message:
-                    "Copy Material does not exist. Please enter or select a valid material."
-                });
-              }
-
-              oHeaderModel.setProperty(
-                "/CopyMaterial",
-                oMatchedMaterial.Product
-              );
+            function (sBackendCopyMaterial) {
+              oHeader.CopyMaterial = sBackendCopyMaterial;
+              oHeaderModel.setProperty("/CopyMaterial", sBackendCopyMaterial);
               oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
               return BomActionService.getAlternateBOMItems(
                 this.getOwnerComponent().getModel(),
                 {
-                  Material: oMatchedMaterial.Product,
+                  Material: sBackendCopyMaterial,
                   Plant: String(oHeader.CopyPlant || "").trim(),
                   BomUsage: Constants.BOM_USAGE,
-                  BillOfMaterialVariant: String(oHeader.CopyAltBom || "").trim()
+                  BillOfMaterialVariant: String(
+                    oHeader.CopyAltBom || ""
+                  ).trim()
                 }
               );
             }.bind(this)
@@ -550,35 +534,13 @@ sap.ui.define(
           return;
         }
 
-        this._resolveMaterialFromValueHelp(sValue)
-          .then(function (oMatchedMaterial) {
-            oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
-
-            if (!oMatchedMaterial) {
-              oInput.setValueState("Warning");
-              oInput.setValueStateText(
-                "Material does not exist in value help."
-              );
-
-              oHeaderModel.setProperty(sTargetProperty, sValue);
-
-              if (bResetValidation) {
-                HeaderModel.setInvalidState(
-                  oHeaderModel,
-                  "Material does not exist.",
-                  "Warning"
-                );
-              }
-
-              that._clearCopiedItems();
-              that._syncHeaderToRoute();
-              return;
-            }
-
+        this._resolveBackendMaterial(sValue)
+          .then(function (sBackendMaterial) {
             oInput.setValueState("None");
             oInput.setValueStateText("");
 
-            oHeaderModel.setProperty(sTargetProperty, oMatchedMaterial.Product);
+            oHeaderModel.setProperty(sTargetProperty, sBackendMaterial);
+            oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
             if (bResetValidation) {
               that.onHeaderFieldChange(oEvent);
@@ -588,6 +550,22 @@ sap.ui.define(
             }
           })
           .catch(function (oError) {
+            oInput.setValueState("Warning");
+            oInput.setValueStateText("Material could not be resolved.");
+
+            oHeaderModel.setProperty(sTargetProperty, sValue);
+
+            if (bResetValidation) {
+              HeaderModel.setInvalidState(
+                oHeaderModel,
+                "Material could not be resolved.",
+                "Warning"
+              );
+            }
+
+            that._clearCopiedItems();
+            that._syncHeaderToRoute();
+
             MessageBox.error(that._getErrorText(oError));
           });
       },
@@ -599,12 +577,44 @@ sap.ui.define(
           return Promise.resolve(null);
         }
 
-        return ValueHelpService.loadMaterialVHData(this).then(function (
-          oMaterialVHModel
-        ) {
-          return ValueHelpService.findMaterial(sMaterial, oMaterialVHModel);
-        });
+        return ValueHelpService.loadMaterialVHData(this).then(
+          function (oMaterialVHModel) {
+            return ValueHelpService.findMaterial(sMaterial, oMaterialVHModel);
+          }
+        );
       },
+
+    _resolveBackendMaterial: function (sMaterial) {
+  var sInputMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+
+  if (!sInputMaterial) {
+    return Promise.resolve("");
+  }
+
+  return this._resolveMaterialFromValueHelp(sInputMaterial)
+    .then(
+      function (oMatchedMaterial) {
+        if (oMatchedMaterial && oMatchedMaterial.Product) {
+          /*
+           * Important:
+           * Value help fixes casing for alphanumeric material.
+           * _toBackendMaterial then fixes leading zero for numeric material.
+           *
+           * bc-aaron -> value help -> BC-AARON -> _toBackendMaterial -> BC-AARON
+           * 52       -> value help may return 52 -> _toBackendMaterial -> 000000000000000052
+           */
+          return this._toBackendMaterial(oMatchedMaterial.Product);
+        }
+
+        return this._toBackendMaterial(sInputMaterial);
+      }.bind(this)
+    )
+    .catch(
+      function () {
+        return this._toBackendMaterial(sInputMaterial);
+      }.bind(this)
+    );
+},
 
       _setInvalidMaterialMessage: function (sMessage) {
         HeaderModel.setInvalidState(
@@ -622,12 +632,9 @@ sap.ui.define(
         ValueHelpHelper.openMaterialValueHelp(
           this,
           function (oData) {
-            var oHeaderModel = that
-              .getOwnerComponent()
-              .getModel("headerModel");
+            var oHeaderModel = that.getOwnerComponent().getModel("headerModel");
 
-            var sTargetProperty =
-              that._sMaterialTargetProperty || "/Material";
+            var sTargetProperty = that._sMaterialTargetProperty || "/Material";
 
             oHeaderModel.setProperty(sTargetProperty, oData.Product);
             oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
@@ -663,9 +670,7 @@ sap.ui.define(
         ValueHelpHelper.openPlantValueHelp(
           this,
           function (oData) {
-            var oHeaderModel = that
-              .getOwnerComponent()
-              .getModel("headerModel");
+            var oHeaderModel = that.getOwnerComponent().getModel("headerModel");
 
             var sTargetProperty = that._sPlantTargetProperty || "/Plant";
 
@@ -685,6 +690,16 @@ sap.ui.define(
             that._sPlantTargetProperty = "/Plant";
           }
         );
+      },
+
+      _toBackendMaterial: function (sMaterial) {
+        sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+
+        if (/^\d+$/.test(sMaterial) && sMaterial.length < 18) {
+          return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
+        }
+
+        return sMaterial;
       },
 
       _getErrorText: function (oError) {

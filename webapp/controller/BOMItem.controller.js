@@ -1,4 +1,4 @@
-/* global  */
+/* global Promise */
 
 sap.ui.define(
   [
@@ -222,7 +222,11 @@ sap.ui.define(
 
         for (var i = 0; i < aItems.length; i++) {
           var oItem = aItems[i];
-          var sComponent = String(oItem.component || "").trim().toUpperCase();
+
+          var sComponent = await this._resolveBackendComponent(
+            oItem.component,
+            sPlant
+          );
 
           var oCheckResult =
             await ItemScreenService.checkComponentPlantExtension(
@@ -245,7 +249,9 @@ sap.ui.define(
             };
           }
 
-          oItem.component = oCheckResult.component || sComponent;
+          oItem.component = this._toBackendMaterial(
+            oCheckResult.component || sComponent
+          );
           oItem.description = oCheckResult.description || "";
           oItem.uom = oCheckResult.uom || "";
         }
@@ -265,6 +271,14 @@ sap.ui.define(
 
         var oItemModel = this.getOwnerComponent().getModel("itemModel");
         var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
+
+        aItems.forEach(
+          function (oItem) {
+            oItem.component = this._toBackendMaterial(oItem.component);
+          }.bind(this)
+        );
+
+        ItemModel.setItems(oItemModel, aItems);
 
         return ItemScreenService.buildBomCreatePayload(oHeader, aItems);
       },
@@ -351,27 +365,33 @@ sap.ui.define(
 
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
         var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
-        var sComponent = String(oInput.getValue() || "").trim().toUpperCase();
+        var sComponentInput = String(oInput.getValue() || "").trim();
+
         var oItemModel = oContext.getModel();
         var sPath = oContext.getPath();
 
-        if (!sComponent) {
+        if (!sComponentInput) {
           oItemModel.setProperty(sPath + "/component", "");
           oItemModel.setProperty(sPath + "/description", "");
           oItemModel.setProperty(sPath + "/uom", "");
           return;
         }
 
+        if (!sPlant) {
+          MessageBox.warning("Please select Plant first.");
+          return;
+        }
+
+        var sComponent = await this._resolveBackendComponent(
+          sComponentInput,
+          sPlant
+        );
+
         oInput.setValue(sComponent);
 
         oItemModel.setProperty(sPath + "/component", sComponent);
         oItemModel.setProperty(sPath + "/description", "");
         oItemModel.setProperty(sPath + "/uom", "");
-
-        if (!sPlant) {
-          MessageBox.warning("Please select Plant first.");
-          return;
-        }
 
         var bValid = await ItemScreenService.fillComponentDetails(
           this.getOwnerComponent().getModel(),
@@ -406,11 +426,15 @@ sap.ui.define(
 
         for (var i = 0; i < aItems.length; i++) {
           var oItem = aItems[i];
-          var sComponent = String(oItem.component || "").trim().toUpperCase();
 
-          if (!sComponent) {
+          if (!oItem.component) {
             continue;
           }
+
+          var sComponent = await this._resolveBackendComponent(
+            oItem.component,
+            sPlant
+          );
 
           oItem.component = sComponent;
 
@@ -428,7 +452,9 @@ sap.ui.define(
           );
 
           if (oResult.valid) {
-            oItem.component = oResult.component || sComponent;
+            oItem.component = this._toBackendMaterial(
+              oResult.component || sComponent
+            );
             oItem.description = oResult.description || "";
             oItem.uom = oResult.uom || "";
           }
@@ -486,7 +512,11 @@ sap.ui.define(
         var oItemModel = oContext.getModel();
         var sPath = oContext.getPath();
 
-        oItemModel.setProperty(sPath + "/component", oData.component || "");
+        var sComponent = this._toBackendMaterial(
+          this._getComponentValue(oData)
+        );
+
+        oItemModel.setProperty(sPath + "/component", sComponent);
         oItemModel.setProperty(
           sPath + "/description",
           ItemScreenService.getComponentDescription(oData)
@@ -531,7 +561,7 @@ sap.ui.define(
           ? oHeaderModel.getProperty("/Material")
           : "";
 
-        sMaterial = String(sMaterial || "").trim().toUpperCase();
+        sMaterial = this._toBackendMaterial(sMaterial);
 
         if (!sMaterial) {
           MessageBox.warning("Please enter header material first.");
@@ -584,6 +614,102 @@ sap.ui.define(
         if (!bApplied) {
           MessageBox.error("Could not determine selected item row.");
         }
+      },
+
+      _resolveBackendComponent: function (sComponent, sPlant) {
+        var sInputComponent = this._normalizeMaterialInput(sComponent);
+
+        if (!sInputComponent) {
+          return Promise.resolve("");
+        }
+
+        if (!sPlant) {
+          return Promise.resolve(this._toBackendMaterial(sInputComponent));
+        }
+
+        return ItemScreenService.loadComponentVHData(this, sPlant)
+          .then(
+            function (oLocalModel) {
+              var oMatchedComponent = this._findComponentInValueHelp(
+                sInputComponent,
+                oLocalModel
+              );
+
+              if (oMatchedComponent) {
+                return this._toBackendMaterial(
+                  this._getComponentValue(oMatchedComponent)
+                );
+              }
+
+              return this._toBackendMaterial(sInputComponent);
+            }.bind(this)
+          )
+          .catch(
+            function () {
+              return this._toBackendMaterial(sInputComponent);
+            }.bind(this)
+          );
+      },
+
+      _findComponentInValueHelp: function (sComponent, oLocalModel) {
+        var sSearch = this._normalizeMaterialInput(sComponent).toUpperCase();
+        var aItems = oLocalModel ? oLocalModel.getProperty("/items") || [] : [];
+
+        if (!sSearch || !aItems.length) {
+          return null;
+        }
+
+        return (
+          aItems.find(
+            function (oItem) {
+              var sValue = this._normalizeMaterialInput(
+                this._getComponentValue(oItem)
+              ).toUpperCase();
+
+              if (sValue === sSearch) {
+                return true;
+              }
+
+              if (/^\d+$/.test(sSearch) && /^\d+$/.test(sValue)) {
+                return (
+                  sValue.replace(/^0+/, "") ===
+                  sSearch.replace(/^0+/, "")
+                );
+              }
+
+              return false;
+            }.bind(this)
+          ) || null
+        );
+      },
+
+      _getComponentValue: function (oData) {
+        if (!oData) {
+          return "";
+        }
+
+        return (
+          oData.component ||
+          oData.Component ||
+          oData.Product ||
+          oData.Material ||
+          oData.BillOfMaterialComponent ||
+          ""
+        );
+      },
+
+      _normalizeMaterialInput: function (sMaterial) {
+        return String(sMaterial || "").trim();
+      },
+
+      _toBackendMaterial: function (sMaterial) {
+        sMaterial = this._normalizeMaterialInput(sMaterial);
+
+        if (/^\d+$/.test(sMaterial) && sMaterial.length < 18) {
+          return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
+        }
+
+        return sMaterial;
       },
 
       _clearBomDraftData: function () {

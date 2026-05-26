@@ -77,41 +77,80 @@ sap.ui.define(
         );
       },
 
-      findMaterial: function (sMaterial, oMaterialVHModel) {
-        var sSearch = FormatterHelper.normalizeMaterialInput(
-          sMaterial
-        ).toUpperCase();
+    findMaterial: function (sMaterial, oMaterialVHModel) {
+  var sSearch = FormatterHelper.normalizeMaterialInput(
+    sMaterial
+  ).toUpperCase();
 
-        var aItems = [];
+  var aItems = [];
+  var oMatchedItem = null;
+  var sAlphaMaterial = "";
 
-        if (!sSearch || !oMaterialVHModel) {
-          return null;
-        }
+  if (!sSearch || !oMaterialVHModel) {
+    return null;
+  }
 
-        aItems = oMaterialVHModel.getProperty("/items") || [];
+  aItems = oMaterialVHModel.getProperty("/items") || [];
 
-        return (
-          aItems.find(function (oItem) {
-            return String(oItem.Product || "").toUpperCase() === sSearch;
-          }) || null
-        );
-      },
+  oMatchedItem =
+    aItems.find(function (oItem) {
+      var sProduct = String(oItem.Product || "").toUpperCase();
 
-      _getUniqueProducts: function (aResults) {
-        var oSeen = {};
-        var aUniqueResults = [];
-
-        aResults.forEach(function (oItem) {
-          var sProduct = String(oItem.Product || "");
-
-          if (sProduct && !oSeen[sProduct]) {
-            oSeen[sProduct] = true;
-            aUniqueResults.push(oItem);
-          }
-        });
-
-        return aUniqueResults;
+      if (sProduct === sSearch) {
+        return true;
       }
+
+      if (/^\d+$/.test(sSearch) && /^\d+$/.test(sProduct)) {
+        return sProduct.replace(/^0+/, "") === sSearch.replace(/^0+/, "");
+      }
+
+      return false;
+    }) || null;
+
+  if (oMatchedItem) {
+    return oMatchedItem;
+  }
+
+  if (/^\d+$/.test(sSearch)) {
+    sAlphaMaterial = ValueHelpService._padMaterialNumber(sSearch);
+
+    return {
+      Product: sAlphaMaterial
+    };
+  }
+
+  return null;
+},
+
+     _getUniqueProducts: function (aResults) {
+  var oSeen = {};
+  var aUniqueResults = [];
+
+  aResults.forEach(function (oItem) {
+    var sProduct = String(oItem.Product || "");
+
+    if (sProduct && !oSeen[sProduct]) {
+      oSeen[sProduct] = true;
+      aUniqueResults.push(oItem);
+    }
+  });
+
+  return aUniqueResults;
+},
+
+_padMaterialNumber: function (sMaterial) {
+  sMaterial = String(sMaterial || "").trim();
+
+  if (!/^\d+$/.test(sMaterial)) {
+    return sMaterial;
+  }
+
+  if (sMaterial.length >= 18) {
+    return sMaterial;
+  }
+
+  return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
+}
     };
 
     return ValueHelpService;
