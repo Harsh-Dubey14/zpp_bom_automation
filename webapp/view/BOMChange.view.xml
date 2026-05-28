@@ -1,0 +1,232 @@
+<mvc:View
+    controllerName="zppbomautomation.controller.BOMChange"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:f="sap.ui.layout.form"
+    xmlns:core="sap.ui.core"
+    displayBlock="true"
+>
+    <Page
+        id="pageBOMChange"
+        title="Change BOM"
+        showNavButton="false"
+        backgroundDesign="Standard"
+    >
+        <customHeader>
+            <Bar>
+                <contentLeft>
+                    <Title
+                        text="Change BOM"
+                        level="H2"
+                        class="sapUiSmallMarginBegin"
+                    />
+                </contentLeft>
+
+                <contentRight>
+                    <!-- <Button
+                        icon="sap-icon://search"
+                        tooltip="Get BOM Components"
+                        type="Emphasized"
+                        press=".onGetBOMComponents"
+                    /> -->
+
+                    <Button
+                        icon="sap-icon://action"
+                        tooltip="Continue"
+                        type="Accept"
+                        enabled="{changeModel>/CanContinue}"
+                        press=".onContinue"
+                    />
+                </contentRight>
+            </Bar>
+        </customHeader>
+
+        <content>
+            <VBox class="sapUiResponsiveContentPadding">
+                <MessageStrip
+                    id="changeMsgStrip"
+                    text="{changeModel>/Message}"
+                    type="{changeModel>/MessageType}"
+                    showIcon="true"
+                    visible="{changeModel>/ShowMessage}"
+                    class="sapUiSmallMarginBottom"
+                />
+
+                <f:SimpleForm
+                    id="materialPlantSearchForm"
+                    title="Search by Material and Plant"
+                    editable="true"
+                    layout="ResponsiveGridLayout"
+                    labelSpanXL="3"
+                    labelSpanL="3"
+                    labelSpanM="4"
+                    labelSpanS="12"
+                    adjustLabelSpan="false"
+                    emptySpanXL="6"
+                    emptySpanL="5"
+                    emptySpanM="2"
+                    emptySpanS="0"
+                    columnsXL="1"
+                    columnsL="1"
+                    columnsM="1"
+                    singleContainerFullSize="false"
+                >
+                    <f:content>
+                        <Label
+                            text="Material"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangeMaterial"
+                            value="{changeModel>/Material}"
+                            showValueHelp="true"
+                            valueHelpRequest=".onMaterialValueHelp"
+                            liveChange=".onMaterialSearchFieldChange"
+                            maxLength="40"
+                            placeholder="Enter Material"
+                        />
+
+                        <Label
+                            text="Plant"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangePlant"
+                            value="{changeModel>/Plant}"
+                            showValueHelp="true"
+                            valueHelpRequest=".onPlantValueHelp"
+                            liveChange=".onMaterialSearchFieldChange"
+                            maxLength="4"
+                            placeholder="Enter Plant"
+                        />
+
+                        <Label
+                            text="BOM Usage"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangeBomUsageMaterial"
+                            value="{changeModel>/BomUsage}"
+                            editable="false"
+                            enabled="false"
+                        />
+
+                        <Label
+                            text="Alternative BOM"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangeAltBomMaterial"
+                            value="{changeModel>/AltBom}"
+                            liveChange=".onMaterialSearchFieldChange"
+                            maxLength="2"
+                            placeholder="Enter Alternative BOM"
+                        />
+
+                        <Label />
+
+                        <Button
+                            text="Get BOM by Material"
+                            icon="sap-icon://search"
+                            type="Emphasized"
+                            press=".onGetBOMByMaterial"
+                        />
+                    </f:content>
+                </f:SimpleForm>
+
+                <f:SimpleForm
+                    id="bomNumberSearchForm"
+                    title="Search by BOM Number"
+                    editable="true"
+                    layout="ResponsiveGridLayout"
+                    labelSpanXL="3"
+                    labelSpanL="3"
+                    labelSpanM="4"
+                    labelSpanS="12"
+                    adjustLabelSpan="false"
+                    emptySpanXL="6"
+                    emptySpanL="5"
+                    emptySpanM="2"
+                    emptySpanS="0"
+                    columnsXL="1"
+                    columnsL="1"
+                    columnsM="1"
+                    singleContainerFullSize="false"
+                    class="sapUiMediumMarginTop"
+                >
+                    <f:content>
+                        <Label
+                            text="BOM Number"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangeBomNumber"
+                            value="{changeModel>/BillOfMaterial}"
+                            liveChange=".onBomNumberSearchFieldChange"
+                            maxLength="8"
+                            placeholder="Enter BOM Number"
+                        />
+
+                        <Label
+                            text="BOM Usage"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangeBomUsageBomNo"
+                            value="{changeModel>/BomUsage}"
+                            editable="false"
+                            enabled="false"
+                        />
+
+                        <Label
+                            text="Alternative BOM"
+                            required="true"
+                        />
+
+                        <Input
+                            id="inpChangeAltBomBomNo"
+                            value="{changeModel>/BomNumberAltBom}"
+                            liveChange=".onBomNumberSearchFieldChange"
+                            maxLength="2"
+                            placeholder="Enter Alternative BOM"
+                        />
+
+                        <Label />
+
+                        <Button
+                            text="Get BOM by BOM Number"
+                            icon="sap-icon://search"
+                            type="Emphasized"
+                            press=".onGetBOMByNumber"
+                        />
+                    </f:content>
+                </f:SimpleForm>
+            </VBox>
+        </content>
+
+        <footer>
+            <OverflowToolbar>
+                <ToolbarSpacer />
+
+                <Button
+                    text="Continue"
+                    icon="sap-icon://navigation-right-arrow"
+                    type="Accept"
+                    enabled="{changeModel>/CanContinue}"
+                    press=".onContinue"
+                />
+
+                <Button
+                    text="Cancel"
+                    press=".onCancel"
+                />
+            </OverflowToolbar>
+        </footer>
+    </Page>
+</mvc:View>

@@ -37,6 +37,14 @@ sap.ui.define(
           Constants.ACTIONS.CREATE_BOM,
           oPayload
         );
+      },
+
+      changeBomItem: function (oModel, oPayload) {
+        return ODataActionHelper.postAction(
+          oModel,
+          Constants.ACTIONS.CHANGE_BOM_ITEM,
+          oPayload
+        );
       }
     };
   }

@@ -1,5 +1,5 @@
 <mvc:View
-    controllerName="zppbomautomation.controller.BOMItem"
+    controllerName="zppbomautomation.controller.BOMChangeItem"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:f="sap.ui.layout.form"
@@ -7,14 +7,15 @@
     displayBlock="true"
 >
     <Page
-        id="pageBOMItems"
-        title="Create Material BOM"
+        id="pageBOMChangeItemScreen"
+        title="Change Material BOM"
         showNavButton="true"
         navButtonPress=".onNavBack"
     >
         <content>
             <VBox class="sapUiResponsiveContentPadding">
                 <MessageStrip
+                    id="msgStripBOMChangeItem"
                     text="{resultModel>/Message}"
                     type="{resultModel>/MessageType}"
                     showIcon="true"
@@ -23,8 +24,8 @@
                 />
 
                 <f:SimpleForm
-                    id="headerForm"
-                    title="BOM Header Information"
+                    id="changeHeaderForm"
+                    title="Existing BOM Header Information"
                     editable="false"
                     layout="ResponsiveGridLayout"
                     labelSpanXL="3"
@@ -36,17 +37,29 @@
                     columnsM="1"
                 >
                     <f:content>
+                        <Label text="BOM Number" />
+                        <Text text="{headerModel>/BillOfMaterial}" />
+
                         <Label text="Material" />
                         <Text text="{headerModel>/Material}" />
 
                         <Label text="Plant" />
                         <Text text="{headerModel>/Plant}" />
 
+                        <Label text="BOM Category" />
+                        <Text text="{headerModel>/BillOfMaterialCategory}" />
+
                         <Label text="BOM Usage" />
                         <Text text="{headerModel>/BomUsage}" />
 
                         <Label text="Alternative BOM" />
                         <Text text="{headerModel>/AltBom}" />
+
+                        <Label text="BOM Version" />
+                        <Text text="{headerModel>/BillOfMaterialVersion}" />
+
+                        <Label text="Header Change Document" />
+                        <Text text="{headerModel>/HeaderChangeDocument}" />
 
                         <Label text="Base Quantity" />
                         <Text text="{headerModel>/BaseQty}" />
@@ -57,25 +70,22 @@
                         <Label text="Base UOM" />
                         <Text text="{headerModel>/BaseUom}" />
 
-                        <Label text="Request Status" />
+                        <Label text="BOM Status" />
+                        <Text text="{headerModel>/BomStatus}" />
+
+                        <Label text="Posting Status" />
                         <ObjectStatus
                             text="{resultModel>/Status}"
                             state="{resultModel>/StatusState}"
                         />
 
-                        <Label text="BOM Request ID" />
-                        <Text text="{resultModel>/BomId}" />
-
-                        <Label text="Created BOM" />
-                        <ObjectIdentifier
-                            title="{resultModel>/BillOfMaterial}"
-                            text="{resultModel>/CreatedBomVariant}"
-                        />
+                        <Label text="Message" />
+                        <Text text="{resultModel>/Message}" />
                     </f:content>
                 </f:SimpleForm>
 
                 <Table
-                    id="bomItemsTable"
+                    id="tblBOMChangeItems"
                     inset="false"
                     growing="true"
                     items="{itemModel>/items}"
@@ -93,6 +103,7 @@
                             <ToolbarSpacer />
 
                             <Button
+                                id="btnChangeItemAdd"
                                 icon="sap-icon://add"
                                 text="Add"
                                 type="Emphasized"
@@ -101,6 +112,7 @@
                             />
 
                             <Button
+                                id="btnChangeItemDelete"
                                 text="Delete"
                                 icon="sap-icon://delete"
                                 type="Reject"
@@ -109,6 +121,7 @@
                             />
 
                             <Button
+                                id="btnChangeItemSelectAll"
                                 text="Select All"
                                 icon="sap-icon://multi-select"
                                 press=".onSelectAll"
@@ -122,6 +135,23 @@
                             hAlign="Center"
                         >
                             <Text text="Item" />
+                        </Column>
+
+                        <Column
+                            width="9rem"
+                            hAlign="Center"
+                            minScreenWidth="Tablet"
+                            demandPopin="true"
+                        >
+                            <Text text="Status" />
+                        </Column>
+
+                        <Column
+                            width="10rem"
+                            minScreenWidth="Desktop"
+                            demandPopin="true"
+                        >
+                            <Text text="Node No." />
                         </Column>
 
                         <Column
@@ -176,9 +206,20 @@
                     </columns>
 
                     <items>
-                        <ColumnListItem vAlign="Middle">
+                        <ColumnListItem
+                            vAlign="Middle"
+                            type="Inactive"
+                            highlight="{= ${itemModel>rowStatus} === 'DELETED' ? 'Error' : ${itemModel>rowStatus} === 'NEW' ? 'Success' : ${itemModel>rowStatus} === 'CHANGED' ? 'Warning' : 'None' }"
+                        >
                             <cells>
                                 <Text text="{itemModel>item}" />
+
+                                <ObjectStatus
+                                    text="{itemModel>rowStatus}"
+                                    state="{= ${itemModel>rowStatus} === 'DELETED' ? 'Error' : ${itemModel>rowStatus} === 'NEW' ? 'Success' : ${itemModel>rowStatus} === 'CHANGED' ? 'Warning' : 'Information' }"
+                                />
+
+                                <Text text="{itemModel>billOfMaterialItemNodeNumber}" />
 
                                 <Input
                                     value="{itemModel>component}"
@@ -186,7 +227,7 @@
                                     valueHelpOnly="false"
                                     valueHelpRequest=".onComponentValueHelp"
                                     change=".onComponentChange"
-                                    editable="{resultModel>/Editable}"
+                                    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
                                     maxLength="40"
                                     placeholder="Enter Component"
                                 />
@@ -206,30 +247,24 @@
                                     type="Text"
                                     liveChange=".onQuantityLiveChange"
                                     change=".onQuantityChange"
-                                    editable="{resultModel>/Editable}"
+                                    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
                                     placeholder="Enter Quantity"
                                 />
 
                                 <Input
-    value="{itemModel>uom}"
-    width="5rem"
-    editable="{resultModel>/Editable}"
-    placeholder="UoM"
-    change=".onUomChange"
-/>
-
-                                <!-- <Input
-                                    value="{itemModel>sortString}"
-                                    editable="{resultModel>/Editable}"
-                                    placeholder="Sort String"
-                                /> -->
+                                    value="{itemModel>uom}"
+                                    width="5rem"
+                                    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
+                                    placeholder="UoM"
+                                    change=".onUomChange"
+                                />
 
                                 <Input
                                     value="{itemModel>sortString}"
                                     showValueHelp="true"
                                     valueHelpRequest=".onSortStringValueHelp"
                                     change=".onSortStringChange"
-                                    editable="{resultModel>/Editable}"
+                                    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
                                     maxLength="10"
                                     placeholder="Sort String"
                                 />
@@ -248,30 +283,25 @@
             </VBox>
         </content>
 
-       <footer>
-    <OverflowToolbar>
-        <ToolbarSpacer />
+        <footer>
+            <OverflowToolbar>
+                <ToolbarSpacer />
 
-        <Button
-            text="{= ${headerModel>/IsChangeMode} ? 'Post Changes' : 'Create BOM' }"
-            type="Emphasized"
-            icon="{= ${headerModel>/IsChangeMode} ? 'sap-icon://upload-to-cloud' : 'sap-icon://save' }"
-            press=".onSave"
-            enabled="{resultModel>/CanSave}"
-        />
+                <Button
+                    id="btnPostBOMChanges"
+                    text="Post Changes"
+                    type="Emphasized"
+                    icon="sap-icon://upload-to-cloud"
+                    press=".onPostChanges"
+                    enabled="{resultModel>/CanSave}"
+                />
 
-        <Button
-            text="{= ${headerModel>/IsChangeMode} ? 'New Change' : 'New BOM' }"
-            icon="sap-icon://add-document"
-            press=".onNewBOM"
-            visible="{= !${headerModel>/IsChangeMode} }"
-        />
-
-        <Button
-            text="Cancel"
-            press=".onCancel"
-        />
-    </OverflowToolbar>
-</footer>
+                <Button
+                    id="btnCancelBOMChanges"
+                    text="Cancel"
+                    press=".onCancel"
+                />
+            </OverflowToolbar>
+        </footer>
     </Page>
 </mvc:View>

@@ -3,45 +3,96 @@ sap.ui.define([], function () {
 
   return {
     getErrorText: function (oError) {
+      var sMessage = "";
+
       try {
+        if (!oError) {
+          return "Unexpected error occurred.";
+        }
+
         if (oError.responseJSON && oError.responseJSON.error) {
-          var vMessage = oError.responseJSON.error.message;
+          sMessage = this._extractGatewayError(oError.responseJSON.error);
 
-          if (typeof vMessage === "string") {
-            return vMessage;
+          if (sMessage) {
+            return sMessage;
           }
-
-          if (vMessage && vMessage.value) {
-            return vMessage.value;
-          }
-
-          return JSON.stringify(oError.responseJSON.error);
         }
 
         if (oError.responseText) {
-          var oParsed = JSON.parse(oError.responseText);
+          try {
+            var oParsed = JSON.parse(oError.responseText);
 
-          if (oParsed.error) {
-            if (typeof oParsed.error.message === "string") {
-              return oParsed.error.message;
+            if (oParsed && oParsed.error) {
+              sMessage = this._extractGatewayError(oParsed.error);
+
+              if (sMessage) {
+                return sMessage;
+              }
             }
-
-            if (oParsed.error.message && oParsed.error.message.value) {
-              return oParsed.error.message.value;
+          } catch (eJson) {
+            if (typeof oError.responseText === "string") {
+              return oError.responseText;
             }
           }
-
-          return oError.responseText;
         }
 
-        return oError.message || "Unexpected error occurred.";
+        if (oError.message) {
+          return oError.message;
+        }
+
+        if (oError.statusText) {
+          return oError.statusText;
+        }
+
+        return "Unexpected error occurred. Please check SAP Gateway Error Log or ADT Feed Reader.";
       } catch (e) {
         return (
           oError.responseText ||
           oError.message ||
-          "Unexpected error occurred."
+          "Unexpected error occurred. Please check SAP Gateway Error Log or ADT Feed Reader."
         );
       }
+    },
+
+    _extractGatewayError: function (oError) {
+      var aMessages = [];
+      var vMessage = oError.message;
+
+      if (typeof vMessage === "string" && vMessage) {
+        aMessages.push(vMessage);
+      } else if (vMessage && vMessage.value) {
+        aMessages.push(vMessage.value);
+      }
+
+      if (
+        oError.innererror &&
+        oError.innererror.errordetails &&
+        oError.innererror.errordetails.length
+      ) {
+        oError.innererror.errordetails.forEach(function (oDetail) {
+          if (oDetail && oDetail.message) {
+            aMessages.push(oDetail.message);
+          }
+        });
+      }
+
+      if (
+        oError.details &&
+        Array.isArray(oError.details) &&
+        oError.details.length
+      ) {
+        oError.details.forEach(function (oDetail) {
+          if (oDetail && oDetail.message) {
+            aMessages.push(oDetail.message);
+          }
+        });
+      }
+
+      aMessages = aMessages.filter(function (sText, iIndex, aAll) {
+        return sText && aAll.indexOf(sText) === iIndex;
+      });
+
+      return aMessages.join("\n");
     }
   };
 });

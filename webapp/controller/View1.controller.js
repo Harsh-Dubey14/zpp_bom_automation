@@ -206,7 +206,9 @@ sap.ui.define(
           MessageBox.error(this._getErrorText(oError));
         }
       },
-
+      onChangeBOMPress: function () {
+        this.getOwnerComponent().getRouter().navTo("RouteBOMChange");
+      },
       onValidateMaterial: async function () {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
@@ -214,7 +216,6 @@ sap.ui.define(
           MessageBox.error("Header model is missing.");
           return;
         }
-
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
         var oHeader = oHeaderModel.getData();
@@ -584,37 +585,37 @@ sap.ui.define(
         );
       },
 
-    _resolveBackendMaterial: function (sMaterial) {
-  var sInputMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+      _resolveBackendMaterial: function (sMaterial) {
+        var sInputMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
 
-  if (!sInputMaterial) {
-    return Promise.resolve("");
-  }
-
-  return this._resolveMaterialFromValueHelp(sInputMaterial)
-    .then(
-      function (oMatchedMaterial) {
-        if (oMatchedMaterial && oMatchedMaterial.Product) {
-          /*
-           * Important:
-           * Value help fixes casing for alphanumeric material.
-           * _toBackendMaterial then fixes leading zero for numeric material.
-           *
-           * bc-aaron -> value help -> BC-AARON -> _toBackendMaterial -> BC-AARON
-           * 52       -> value help may return 52 -> _toBackendMaterial -> 000000000000000052
-           */
-          return this._toBackendMaterial(oMatchedMaterial.Product);
+        if (!sInputMaterial) {
+          return Promise.resolve("");
         }
 
-        return this._toBackendMaterial(sInputMaterial);
-      }.bind(this)
-    )
-    .catch(
-      function () {
-        return this._toBackendMaterial(sInputMaterial);
-      }.bind(this)
-    );
-},
+        return this._resolveMaterialFromValueHelp(sInputMaterial)
+          .then(
+            function (oMatchedMaterial) {
+              if (oMatchedMaterial && oMatchedMaterial.Product) {
+                /*
+                 * Important:
+                 * Value help fixes casing for alphanumeric material.
+                 * _toBackendMaterial then fixes leading zero for numeric material.
+                 *
+                 * bc-aaron -> value help -> BC-AARON -> _toBackendMaterial -> BC-AARON
+                 * 52       -> value help may return 52 -> _toBackendMaterial -> 000000000000000052
+                 */
+                return this._toBackendMaterial(oMatchedMaterial.Product);
+              }
+
+              return this._toBackendMaterial(sInputMaterial);
+            }.bind(this)
+          )
+          .catch(
+            function () {
+              return this._toBackendMaterial(sInputMaterial);
+            }.bind(this)
+          );
+      },
 
       _setInvalidMaterialMessage: function (sMessage) {
         HeaderModel.setInvalidState(

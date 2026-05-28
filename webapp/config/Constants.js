@@ -6,14 +6,42 @@ sap.ui.define([], function () {
     BOM_STATUS: "2",
     ITEM_CATEGORY: "L",
 
+    APP_MODE: {
+      CREATE: "CREATE",
+      CHANGE: "CHANGE"
+    },
+
+    SEARCH_MODE: {
+      MATERIAL: "MATERIAL",
+      BOM: "BOM"
+    },
+
+    ROW_STATUS: {
+      EXISTING: "EXISTING",
+      CHANGED: "CHANGED",
+      NEW: "NEW",
+      DELETED: "DELETED"
+    },
+
+    CHANGE_MODE: {
+      UPDATE: "U",
+      INSERT: "I",
+      DELETE: "D"
+    },
+
     ROUTES: {
       HEADER: "RouteView1",
-      ITEM: "RouteBOMItem"
+      ITEM: "RouteBOMItem",
+      CHANGE: "RouteBOMChange",
+      CHANGE_ITEM: "RouteBOMChangeItem"
     },
 
     DEFAULTS: {
       BASE_QTY: 1,
-      MESSAGE_TYPE: "Information"
+      MESSAGE_TYPE: "Information",
+      BILL_OF_MATERIAL_CATEGORY: "M",
+      BILL_OF_MATERIAL_VERSION: "",
+      HEADER_CHANGE_DOCUMENT: ""
     },
 
     ACTIONS: {
@@ -26,7 +54,14 @@ sap.ui.define([], function () {
       GET_ALTERNATE_BOM_ITEMS:
         "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.GetAlternateBOMItems",
 
+      CHANGE_BOM_ITEM:
+        "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ChangeBOMItem",
+
       CREATE_BOM: "/BomCreate"
+    },
+
+    ENTITY_SETS: {
+      BOM_CHANGE_READ: "/BomChangeRead"
     },
 
     VALUE_HELP: {

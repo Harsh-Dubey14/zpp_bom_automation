@@ -41,9 +41,17 @@
                         icon="sap-icon://copy"
                         tooltip="Copy Existing BOM"
                         type="Transparent"
-                        class="sapUiSmallMarginEnd"
                         press=".onLoadCopyFromBomItems"
                     />
+
+                   <Button
+    icon="sap-icon://edit"
+    tooltip="Change BOM"
+    text="Change BOM"
+    type="Transparent"
+    class="sapUiSmallMarginEnd"
+    press=".onChangeBOMPress"
+/>
                 </contentRight>
             </Bar>
         </customHeader>
