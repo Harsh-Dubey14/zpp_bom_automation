@@ -40,75 +40,82 @@ sap.ui.define(
           .attachPatternMatched(this._onRouteMatched, this);
       },
 
-      _onRouteMatched: function (oEvent) {
-        var oHeaderModel = HeaderModel.init(
-          this.getOwnerComponent(),
-          this.getView()
-        );
+    _onRouteMatched: function (oEvent) {
+  var oHeaderModel = HeaderModel.init(
+    this.getOwnerComponent(),
+    this.getView()
+  );
 
-        ItemModel.init(this.getOwnerComponent(), this.getView());
+  ItemModel.init(this.getOwnerComponent(), this.getView());
 
-        var oArguments = oEvent.getParameter("arguments") || {};
-        var oQuery = oArguments["?query"];
+  var oArguments = oEvent.getParameter("arguments") || {};
+  var oQuery = oArguments["?query"];
 
-        if (oQuery && Object.keys(oQuery).length > 0) {
-          oHeaderModel.setData(HeaderModel.createDataFromQuery(oQuery));
-        } else {
-          this._resetHeaderAndItemDraftData(oHeaderModel);
-        }
+  if (oQuery && Object.keys(oQuery).length > 0) {
+    oHeaderModel.setData(
+      HeaderModel.createDataFromQuery(this._decodeRouteQuery(oQuery))
+    );
+  } else {
+    this._resetHeaderAndItemDraftData(oHeaderModel);
+  }
 
-        this.getView().setModel(oHeaderModel, "headerModel");
-        this.getView().setModel(
-          this.getOwnerComponent().getModel("itemModel"),
-          "itemModel"
-        );
-      },
+  this.getView().setModel(oHeaderModel, "headerModel");
+  this.getView().setModel(
+    this.getOwnerComponent().getModel("itemModel"),
+    "itemModel"
+  );
+},
 
       _resetHeaderAndItemDraftData: function (oHeaderModel) {
         HeaderModel.reset(oHeaderModel);
         ItemModel.reset(this.getOwnerComponent().getModel("itemModel"));
       },
 
-      _syncHeaderToRoute: function () {
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+     _syncHeaderToRoute: function () {
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
-        if (!oHeaderModel) {
-          return;
+  if (!oHeaderModel) {
+    return;
+  }
+
+  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+
+  var oHeader = oHeaderModel.getData();
+
+  this.getOwnerComponent()
+    .getRouter()
+    .navTo(
+      Constants.ROUTES.HEADER,
+      {
+        "?query": {
+          Material: this._encodeRouteValue(oHeader.Material || ""),
+          Plant: this._encodeRouteValue(oHeader.Plant || ""),
+          BomUsage: this._encodeRouteValue(Constants.BOM_USAGE),
+          AltBom: this._encodeRouteValue(oHeader.AltBom || ""),
+          BaseQty: this._encodeRouteValue(
+            String(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY)
+          ),
+          ValidFrom: this._encodeRouteValue(oHeader.ValidFrom || ""),
+          BaseUom: this._encodeRouteValue(oHeader.BaseUom || ""),
+          BomStatus: this._encodeRouteValue(
+            oHeader.BomStatus || Constants.BOM_STATUS
+          ),
+
+          CopyMaterial: this._encodeRouteValue(oHeader.CopyMaterial || ""),
+          CopyPlant: this._encodeRouteValue(oHeader.CopyPlant || ""),
+          CopyAltBom: this._encodeRouteValue(oHeader.CopyAltBom || ""),
+
+          IsValidated: this._encodeRouteValue(String(!!oHeader.IsValidated)),
+          Message: this._encodeRouteValue(oHeader.Message || ""),
+          MessageType: this._encodeRouteValue(
+            oHeader.MessageType || Constants.DEFAULTS.MESSAGE_TYPE
+          ),
+          ShowMessage: this._encodeRouteValue(String(!!oHeader.ShowMessage))
         }
-
-        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
-
-        var oHeader = oHeaderModel.getData();
-
-        this.getOwnerComponent()
-          .getRouter()
-          .navTo(
-            Constants.ROUTES.HEADER,
-            {
-              "?query": {
-                Material: oHeader.Material || "",
-                Plant: oHeader.Plant || "",
-                BomUsage: Constants.BOM_USAGE,
-                AltBom: oHeader.AltBom || "",
-                BaseQty: String(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY),
-                ValidFrom: oHeader.ValidFrom || "",
-                BaseUom: oHeader.BaseUom || "",
-                BomStatus: oHeader.BomStatus || Constants.BOM_STATUS,
-
-                CopyMaterial: oHeader.CopyMaterial || "",
-                CopyPlant: oHeader.CopyPlant || "",
-                CopyAltBom: oHeader.CopyAltBom || "",
-
-                IsValidated: String(!!oHeader.IsValidated),
-                Message: oHeader.Message || "",
-                MessageType:
-                  oHeader.MessageType || Constants.DEFAULTS.MESSAGE_TYPE,
-                ShowMessage: String(!!oHeader.ShowMessage)
-              }
-            },
-            true
-          );
       },
+      true
+    );
+},
 
       onHeaderFieldChange: function (oEvent) {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
@@ -692,7 +699,36 @@ sap.ui.define(
           }
         );
       },
+_encodeRouteValue: function (vValue) {
+  return encodeURIComponent(
+    String(vValue === undefined || vValue === null ? "" : vValue)
+  );
+},
 
+_decodeRouteValue: function (vValue) {
+  try {
+    return decodeURIComponent(
+      String(vValue === undefined || vValue === null ? "" : vValue)
+    );
+  } catch (e) {
+    return String(vValue === undefined || vValue === null ? "" : vValue);
+  }
+},
+
+_decodeRouteQuery: function (oQuery) {
+  var oDecodedQuery = {};
+  var sKey;
+
+  oQuery = oQuery || {};
+
+  for (sKey in oQuery) {
+    if (Object.prototype.hasOwnProperty.call(oQuery, sKey)) {
+      oDecodedQuery[sKey] = this._decodeRouteValue(oQuery[sKey]);
+    }
+  }
+
+  return oDecodedQuery;
+},
       _toBackendMaterial: function (sMaterial) {
         sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
 
