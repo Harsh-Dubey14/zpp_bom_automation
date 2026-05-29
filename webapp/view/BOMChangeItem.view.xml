@@ -55,12 +55,6 @@
                         <Label text="Alternative BOM" />
                         <Text text="{headerModel>/AltBom}" />
 
-                        <Label text="BOM Version" />
-                        <Text text="{headerModel>/BillOfMaterialVersion}" />
-
-                        <Label text="Header Change Document" />
-                        <Text text="{headerModel>/HeaderChangeDocument}" />
-
                         <Label text="Base Quantity" />
                         <Text text="{headerModel>/BaseQty}" />
 
@@ -69,15 +63,6 @@
 
                         <Label text="Base UOM" />
                         <Text text="{headerModel>/BaseUom}" />
-
-                        <Label text="BOM Status" />
-                        <Text text="{headerModel>/BomStatus}" />
-
-                        <Label text="Posting Status" />
-                        <ObjectStatus
-                            text="{resultModel>/Status}"
-                            state="{resultModel>/StatusState}"
-                        />
 
                         <Label text="Message" />
                         <Text text="{resultModel>/Message}" />
@@ -125,6 +110,7 @@
                                 text="Select All"
                                 icon="sap-icon://multi-select"
                                 press=".onSelectAll"
+                                enabled="{resultModel>/Editable}"
                             />
                         </OverflowToolbar>
                     </headerToolbar>
@@ -135,23 +121,6 @@
                             hAlign="Center"
                         >
                             <Text text="Item" />
-                        </Column>
-
-                        <Column
-                            width="9rem"
-                            hAlign="Center"
-                            minScreenWidth="Tablet"
-                            demandPopin="true"
-                        >
-                            <Text text="Status" />
-                        </Column>
-
-                        <Column
-                            width="10rem"
-                            minScreenWidth="Desktop"
-                            demandPopin="true"
-                        >
-                            <Text text="Node No." />
                         </Column>
 
                         <Column
@@ -214,17 +183,9 @@
                             <cells>
                                 <Text text="{itemModel>item}" />
 
-                                <ObjectStatus
-                                    text="{itemModel>rowStatus}"
-                                    state="{= ${itemModel>rowStatus} === 'DELETED' ? 'Error' : ${itemModel>rowStatus} === 'NEW' ? 'Success' : ${itemModel>rowStatus} === 'CHANGED' ? 'Warning' : 'Information' }"
-                                />
-
-                                <Text text="{itemModel>billOfMaterialItemNodeNumber}" />
-
                                 <Input
                                     value="{itemModel>component}"
                                     showValueHelp="true"
-                                    valueHelpOnly="false"
                                     valueHelpRequest=".onComponentValueHelp"
                                     change=".onComponentChange"
                                     editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"

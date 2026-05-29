@@ -183,7 +183,6 @@
                                 <Input
                                     value="{itemModel>component}"
                                     showValueHelp="true"
-                                    valueHelpOnly="false"
                                     valueHelpRequest=".onComponentValueHelp"
                                     change=".onComponentChange"
                                     editable="{resultModel>/Editable}"
