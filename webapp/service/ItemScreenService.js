@@ -188,47 +188,102 @@ sap.ui.define(
         });
       },
 
-      loadSortStringVHData: function (oController, sMaterial) {
-        if (
-          oController._oSortStringVHModel &&
-          oController._sSortStringVHMaterial === sMaterial
-        ) {
-          return Promise.resolve(oController._oSortStringVHModel);
-        }
+    loadSortStringVHData: function (oController, sComponent) {
+  sComponent = String(sComponent || "").trim();
 
-        return new Promise(function (resolve, reject) {
-          var oODataModel = oController.getOwnerComponent().getModel();
+  if (!sComponent) {
+    return Promise.resolve(
+      new JSONModel({
+        items: []
+      })
+    );
+  }
 
-          var oListBinding = oODataModel.bindList(
-            Constants.VALUE_HELP.SORT_STRING_PATH,
-            undefined,
-            undefined,
-            [new Filter("Product", FilterOperator.EQ, sMaterial)],
-            {
-              $select: Constants.VALUE_HELP.SORT_STRING_SELECT.join(",")
-            }
-          );
+  if (
+    oController._oSortStringVHModel &&
+    oController._sSortStringVHMaterial === sComponent
+  ) {
+    return Promise.resolve(oController._oSortStringVHModel);
+  }
 
-          oListBinding
-            .requestContexts(0, 200)
-            .then(function (aContexts) {
-              var aResults = aContexts.map(function (oContext) {
-                return oContext.getObject();
-              });
+  return new Promise(function (resolve, reject) {
+    var oODataModel = oController.getOwnerComponent().getModel();
 
-              oController._sSortStringVHMaterial = sMaterial;
-              oController._oSortStringVHModel = new JSONModel({
-                items: aResults
-              });
+    /*
+     * Important:
+     * We are passing row component from BOMChangeItem.controller.js.
+     * Backend sort string VH field is Product, so component is used against Product.
+     */
+    var oListBinding = oODataModel.bindList(
+      Constants.VALUE_HELP.SORT_STRING_PATH,
+      undefined,
+      undefined,
+      [new Filter("Product", FilterOperator.EQ, sComponent)],
+      {
+        $select: Constants.VALUE_HELP.SORT_STRING_SELECT.join(",")
+      }
+    );
 
-              resolve(oController._oSortStringVHModel);
-            })
-            .catch(function (oError) {
-              reject(oError);
-            });
+    oListBinding
+      .requestContexts(0, 5000)
+      .then(function (aContexts) {
+        var aResults = aContexts.map(function (oContext) {
+          var oData = oContext.getObject();
+
+          return {
+            Product:
+              oData.Product ||
+              oData.product ||
+              sComponent,
+
+            Style:
+              oData.Style ||
+              oData.style ||
+              "",
+
+            Zcomb:
+              oData.Zcomb ||
+              oData.zcomb ||
+              oData.sortString ||
+              oData.SortString ||
+              oData.BOMItemSorter ||
+              oData.BomItemSorter ||
+              "",
+
+            sortString:
+              oData.Zcomb ||
+              oData.zcomb ||
+              oData.sortString ||
+              oData.SortString ||
+              oData.BOMItemSorter ||
+              oData.BomItemSorter ||
+              "",
+
+            ColorName:
+              oData.ColorName ||
+              oData.colorName ||
+              "",
+
+            sizes:
+              oData.sizes ||
+              oData.Sizes ||
+              oData.Size ||
+              ""
+          };
         });
-      },
 
+        oController._sSortStringVHMaterial = sComponent;
+        oController._oSortStringVHModel = new JSONModel({
+          items: aResults
+        });
+
+        resolve(oController._oSortStringVHModel);
+      })
+      .catch(function (oError) {
+        reject(oError);
+      });
+  });
+},
       validateBeforeSave: function (oHeader, aItems) {
         if (!oHeader) {
           return {

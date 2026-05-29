@@ -236,15 +236,19 @@ sap.ui.define(
           var sProduct = String(oProductInput.getValue() || "")
             .trim()
             .toUpperCase();
+
           var sStyle = String(oStyleInput.getValue() || "")
             .trim()
             .toUpperCase();
+
           var sZcomb = String(oZcombInput.getValue() || "")
             .trim()
             .toUpperCase();
+
           var sColorName = String(oColorNameInput.getValue() || "")
             .trim()
             .toUpperCase();
+
           var sSizes = String(oSizesInput.getValue() || "")
             .trim()
             .toUpperCase();
@@ -256,11 +260,25 @@ sap.ui.define(
           }
 
           if (sStyle) {
-            aFilters.push(new Filter("Style", FilterOperator.Contains, sStyle));
+            aFilters.push(
+              new Filter("Style", FilterOperator.Contains, sStyle)
+            );
           }
 
           if (sZcomb) {
-            aFilters.push(new Filter("Zcomb", FilterOperator.Contains, sZcomb));
+            aFilters.push(
+              new Filter({
+                filters: [
+                  new Filter("Zcomb", FilterOperator.Contains, sZcomb),
+                  new Filter("zcomb", FilterOperator.Contains, sZcomb),
+                  new Filter("sortString", FilterOperator.Contains, sZcomb),
+                  new Filter("SortString", FilterOperator.Contains, sZcomb),
+                  new Filter("BOMItemSorter", FilterOperator.Contains, sZcomb),
+                  new Filter("BomItemSorter", FilterOperator.Contains, sZcomb)
+                ],
+                and: false
+              })
+            );
           }
 
           if (sColorName) {
@@ -270,7 +288,9 @@ sap.ui.define(
           }
 
           if (sSizes) {
-            aFilters.push(new Filter("sizes", FilterOperator.Contains, sSizes));
+            aFilters.push(
+              new Filter("sizes", FilterOperator.Contains, sSizes)
+            );
           }
 
           var oBinding = oController._oSortStringTable.getBinding("items");
@@ -280,11 +300,30 @@ sap.ui.define(
           }
         };
 
-        oProductInput = new Input({ liveChange: fnUpper, submit: fnDoSearch });
-        oStyleInput = new Input({ liveChange: fnUpper, submit: fnDoSearch });
-        oZcombInput = new Input({ liveChange: fnUpper, submit: fnDoSearch });
-        oColorNameInput = new Input({ liveChange: fnUpper, submit: fnDoSearch });
-        oSizesInput = new Input({ liveChange: fnUpper, submit: fnDoSearch });
+        oProductInput = new Input({
+          liveChange: fnUpper,
+          submit: fnDoSearch
+        });
+
+        oStyleInput = new Input({
+          liveChange: fnUpper,
+          submit: fnDoSearch
+        });
+
+        oZcombInput = new Input({
+          liveChange: fnUpper,
+          submit: fnDoSearch
+        });
+
+        oColorNameInput = new Input({
+          liveChange: fnUpper,
+          submit: fnDoSearch
+        });
+
+        oSizesInput = new Input({
+          liveChange: fnUpper,
+          submit: fnDoSearch
+        });
 
         oController._oSortStringProductInput = oProductInput;
         oController._oSortStringStyleInput = oStyleInput;
@@ -358,7 +397,36 @@ sap.ui.define(
             cells: [
               new Text({ text: "{sortStringVH>Product}" }),
               new Text({ text: "{sortStringVH>Style}" }),
-              new Text({ text: "{sortStringVH>Zcomb}" }),
+              new Text({
+                text: {
+                  parts: [
+                    { path: "sortStringVH>Zcomb" },
+                    { path: "sortStringVH>zcomb" },
+                    { path: "sortStringVH>sortString" },
+                    { path: "sortStringVH>SortString" },
+                    { path: "sortStringVH>BOMItemSorter" },
+                    { path: "sortStringVH>BomItemSorter" }
+                  ],
+                  formatter: function (
+                    sZcomb,
+                    szcomb,
+                    sSortString,
+                    sSortString2,
+                    sBOMItemSorter,
+                    sBomItemSorter
+                  ) {
+                    return (
+                      sZcomb ||
+                      szcomb ||
+                      sSortString ||
+                      sSortString2 ||
+                      sBOMItemSorter ||
+                      sBomItemSorter ||
+                      ""
+                    );
+                  }
+                }
+              }),
               new Text({ text: "{sortStringVH>ColorName}" }),
               new Text({ text: "{sortStringVH>sizes}" })
             ]
@@ -396,10 +464,10 @@ sap.ui.define(
                   .getBindingContext("sortStringVH")
                   .getObject();
 
-                return String(oData.Zcomb || "").trim().toUpperCase();
+                return that._getSortStringValue(oData);
               })
-              .filter(function (sZcomb, iIndex, aArray) {
-                return sZcomb && aArray.indexOf(sZcomb) === iIndex;
+              .filter(function (sSortString, iIndex, aArray) {
+                return sSortString && aArray.indexOf(sSortString) === iIndex;
               });
 
             if (!aSelectedZcomb.length) {
@@ -420,6 +488,25 @@ sap.ui.define(
         });
 
         oController._oSortStringVHD.setTable(oController._oSortStringTable);
+      },
+
+      _getSortStringValue: function (oData) {
+        if (!oData) {
+          return "";
+        }
+
+        return String(
+          oData.Zcomb ||
+            oData.zcomb ||
+            oData.sortString ||
+            oData.SortString ||
+            oData.BOMItemSorter ||
+            oData.BomItemSorter ||
+            oData.bomItemSorter ||
+            ""
+        )
+          .trim()
+          .toUpperCase();
       },
 
       clearSortStringSearch: function (oController) {

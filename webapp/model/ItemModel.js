@@ -10,7 +10,8 @@ sap.ui.define(
     return {
       createDefaultData: function () {
         return {
-          items: []
+          items: [],
+          pendingDeletes: []
         };
       },
 
@@ -22,7 +23,13 @@ sap.ui.define(
           quantity: "",
           uom: "",
           sortString: "",
-          category: Constants.ITEM_CATEGORY
+          category: Constants.ITEM_CATEGORY,
+
+          rowStatus: Constants.ROW_STATUS ? Constants.ROW_STATUS.NEW : "NEW",
+          changeMode: Constants.CHANGE_MODE ? Constants.CHANGE_MODE.INSERT : "I",
+          isNew: true,
+          isChanged: false,
+          isDeleted: false
         };
       },
 
@@ -45,12 +52,15 @@ sap.ui.define(
       reset: function (oItemModel) {
         if (oItemModel) {
           oItemModel.setData(this.createDefaultData());
+          oItemModel.refresh(true);
         }
       },
 
       clearItems: function (oItemModel) {
         if (oItemModel) {
           oItemModel.setProperty("/items", []);
+          oItemModel.setProperty("/pendingDeletes", []);
+          oItemModel.refresh(true);
         }
       },
 
@@ -63,19 +73,34 @@ sap.ui.define(
 
       addRow: function (oItemModel) {
         var aItems = oItemModel.getProperty("/items") || [];
-        var iNextItem = 1;
-
-        if (aItems.length > 0) {
-          var iLastItem = parseInt(aItems[aItems.length - 1].item, 10);
-
-          if (!isNaN(iLastItem)) {
-            iNextItem = iLastItem + 1;
-          }
-        }
+        var iNextItem = this.getNextItemNumber(aItems);
 
         aItems.push(this.createBlankItem(iNextItem));
 
         oItemModel.setProperty("/items", aItems);
+        oItemModel.refresh(true);
+      },
+
+      getNextItemNumber: function (aItems) {
+        var iMax = 0;
+
+        (aItems || []).forEach(function (oItem) {
+          if (!oItem) {
+            return;
+          }
+
+          if (oItem.rowStatus === "DELETED" || oItem.isDeleted) {
+            return;
+          }
+
+          var iItem = parseInt(oItem.item, 10);
+
+          if (!isNaN(iItem) && iItem > iMax) {
+            iMax = iItem;
+          }
+        });
+
+        return iMax + 1;
       },
 
       deleteIndexes: function (oItemModel, aIndexesToDelete) {
@@ -89,9 +114,8 @@ sap.ui.define(
           aItems.splice(iIndex, 1);
         });
 
-        this.renumber(aItems);
-
         oItemModel.setProperty("/items", aItems);
+        oItemModel.refresh(true);
 
         return aItems;
       },
@@ -101,7 +125,27 @@ sap.ui.define(
           aItems[i].item = FormatterHelper.formatItemNumber(i + 1);
         }
       },
+      formatNextItemNumber: function (aItems) {
+        var iMax = 0;
 
+        (aItems || []).forEach(function (oItem) {
+          if (!oItem) {
+            return;
+          }
+
+          if (oItem.rowStatus === "DELETED" || oItem.isDeleted) {
+            return;
+          }
+
+          var iItem = parseInt(oItem.item, 10);
+
+          if (!isNaN(iItem) && iItem > iMax) {
+            iMax = iItem;
+          }
+        });
+
+        return FormatterHelper.formatItemNumber(iMax + 1);
+      },
       applySortStringSelections: function (oItemModel, sPath, aSelectedZcomb) {
         var iRowIndex = Number(sPath.split("/").pop());
         var aItems = oItemModel.getProperty("/items") || [];
@@ -110,25 +154,72 @@ sap.ui.define(
           return false;
         }
 
-        var oBaseRow = Object.assign({}, aItems[iRowIndex]);
+        aSelectedZcomb = (aSelectedZcomb || [])
+          .map(function (vSelected) {
+            if (typeof vSelected === "string") {
+              return String(vSelected || "").trim().toUpperCase();
+            }
 
-        aItems[iRowIndex].sortString = aSelectedZcomb[0];
+            if (!vSelected) {
+              return "";
+            }
 
-        for (var i = 1; i < aSelectedZcomb.length; i++) {
-          var oNewRow = Object.assign({}, oBaseRow, {
-            sortString: aSelectedZcomb[i]
+            return String(
+              vSelected.Zcomb ||
+              vSelected.zcomb ||
+              vSelected.sortString ||
+              vSelected.SortString ||
+              vSelected.BOMItemSorter ||
+              vSelected.BomItemSorter ||
+              vSelected.bomItemSorter ||
+              ""
+            )
+              .trim()
+              .toUpperCase();
+          })
+          .filter(function (sSortString, iIndex, aArray) {
+            return sSortString && aArray.indexOf(sSortString) === iIndex;
           });
 
-          aItems.splice(iRowIndex + i, 0, oNewRow);
+        if (!aSelectedZcomb.length) {
+          return false;
         }
 
-        this.renumber(aItems);
+        var oBaseRow = Object.assign({}, aItems[iRowIndex]);
+
+        /*
+         * First selected sort string updates same row.
+         */
+        aItems[iRowIndex].sortString = aSelectedZcomb[0];
+
+        /*
+         * Remaining selected sort strings duplicate the row.
+         */
+        for (var i = 1; i < aSelectedZcomb.length; i++) {
+          var oNewRow = Object.assign({}, oBaseRow);
+
+          oNewRow.item = this.formatNextItemNumber(aItems);
+          oNewRow.sortString = aSelectedZcomb[i];
+
+          /*
+           * For Create BOM, duplicated rows are just new frontend rows.
+           */
+          oNewRow.rowStatus = Constants.ROW_STATUS ? Constants.ROW_STATUS.NEW : "NEW";
+          oNewRow.changeMode = Constants.CHANGE_MODE
+            ? Constants.CHANGE_MODE.INSERT
+            : "I";
+          oNewRow.isNew = true;
+          oNewRow.isChanged = false;
+          oNewRow.isDeleted = false;
+
+          aItems.push(oNewRow);
+        }
 
         oItemModel.setProperty("/items", aItems);
         oItemModel.refresh(true);
 
         return true;
-      }
+      },
     };
   }
 );
