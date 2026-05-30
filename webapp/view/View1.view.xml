@@ -44,14 +44,14 @@
                         press=".onLoadCopyFromBomItems"
                     />
 
-                   <Button
-    icon="sap-icon://edit"
-    tooltip="Change BOM"
-    text="Change BOM"
-    type="Transparent"
-    class="sapUiSmallMarginEnd"
-    press=".onChangeBOMPress"
-/>
+                    <Button
+                        icon="sap-icon://edit"
+                        tooltip="Change BOM"
+                        text="Change BOM"
+                        type="Transparent"
+                        class="sapUiSmallMarginEnd"
+                        press=".onChangeBOMPress"
+                    />
                 </contentRight>
             </Bar>
         </customHeader>
@@ -97,10 +97,31 @@
                             value="{headerModel>/Material}"
                             showValueHelp="true"
                             valueHelpRequest=".onMaterialValueHelp"
-                            liveChange=".onHeaderFieldChange"
+                            showSuggestion="true"
+                            liveChange=".onMaterialLiveChange"
+                            suggestionItemSelected=".onMaterialSuggestionSelected"
+                            suggestionRows="{materialSuggestModel>/items}"
                             maxLength="40"
-                            placeholder="Enter Material"
-                        />
+                            placeholder="Enter Material / Description"
+                        >
+                            <suggestionColumns>
+                                <Column>
+                                    <Label text="Product" />
+                                </Column>
+                                <Column>
+                                    <Label text="Description" />
+                                </Column>
+                            </suggestionColumns>
+
+                            <suggestionRows>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Text text="{materialSuggestModel>Product}" />
+                                        <Text text="{materialSuggestModel>ProductDescription}" />
+                                    </cells>
+                                </ColumnListItem>
+                            </suggestionRows>
+                        </Input>
 
                         <Label
                             text="Plant"
@@ -112,10 +133,31 @@
                             value="{headerModel>/Plant}"
                             showValueHelp="true"
                             valueHelpRequest=".onPlantValueHelp"
-                            liveChange=".onHeaderFieldChange"
+                            showSuggestion="true"
+                            liveChange=".onPlantLiveChange"
+                            suggestionItemSelected=".onPlantSuggestionSelected"
+                            suggestionRows="{plantSuggestModel>/items}"
                             maxLength="4"
                             placeholder="Enter Plant"
-                        />
+                        >
+                            <suggestionColumns>
+                                <Column>
+                                    <Label text="Plant" />
+                                </Column>
+                                <Column>
+                                    <Label text="Name" />
+                                </Column>
+                            </suggestionColumns>
+
+                            <suggestionRows>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Text text="{plantSuggestModel>Plant}" />
+                                        <Text text="{plantSuggestModel>PlantName}" />
+                                    </cells>
+                                </ColumnListItem>
+                            </suggestionRows>
+                        </Input>
 
                         <Label
                             text="BOM Usage"
@@ -202,10 +244,31 @@
                             value="{headerModel>/CopyMaterial}"
                             showValueHelp="true"
                             valueHelpRequest=".onCopyMaterialValueHelp"
-                            liveChange=".onHeaderFieldChange"
+                            showSuggestion="true"
+                            liveChange=".onCopyMaterialLiveChange"
+                            suggestionItemSelected=".onCopyMaterialSuggestionSelected"
+                            suggestionRows="{materialSuggestModel>/items}"
                             maxLength="40"
-                            placeholder="Enter Copy Material"
-                        />
+                            placeholder="Enter Copy Material / Description"
+                        >
+                            <suggestionColumns>
+                                <Column>
+                                    <Label text="Product" />
+                                </Column>
+                                <Column>
+                                    <Label text="Description" />
+                                </Column>
+                            </suggestionColumns>
+
+                            <suggestionRows>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Text text="{materialSuggestModel>Product}" />
+                                        <Text text="{materialSuggestModel>ProductDescription}" />
+                                    </cells>
+                                </ColumnListItem>
+                            </suggestionRows>
+                        </Input>
 
                         <Label text="Plant" />
 
@@ -214,10 +277,31 @@
                             value="{headerModel>/CopyPlant}"
                             showValueHelp="true"
                             valueHelpRequest=".onCopyPlantValueHelp"
-                            liveChange=".onHeaderFieldChange"
+                            showSuggestion="true"
+                            liveChange=".onCopyPlantLiveChange"
+                            suggestionItemSelected=".onCopyPlantSuggestionSelected"
+                            suggestionRows="{plantSuggestModel>/items}"
                             maxLength="4"
                             placeholder="Enter Copy Plant"
-                        />
+                        >
+                            <suggestionColumns>
+                                <Column>
+                                    <Label text="Plant" />
+                                </Column>
+                                <Column>
+                                    <Label text="Name" />
+                                </Column>
+                            </suggestionColumns>
+
+                            <suggestionRows>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Text text="{plantSuggestModel>Plant}" />
+                                        <Text text="{plantSuggestModel>PlantName}" />
+                                    </cells>
+                                </ColumnListItem>
+                            </suggestionRows>
+                        </Input>
 
                         <Label text="Alternative BOM" />
 
