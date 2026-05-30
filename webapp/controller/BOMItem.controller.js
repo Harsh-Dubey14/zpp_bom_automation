@@ -40,6 +40,8 @@ sap.ui.define(
 
         this._sSortStringVHMaterial = "";
         this._oSortStringVHModel = null;
+        this._oCurrentComponentContext = null;
+        this._oCurrentSortStringContext = null;
 
         this.getOwnerComponent()
           .getRouter()
@@ -223,6 +225,8 @@ sap.ui.define(
         for (var i = 0; i < aItems.length; i++) {
           var oItem = aItems[i];
 
+          var sExistingSortString = this._getCopiedBomSortString(oItem);
+
           var sComponent = await this._resolveBackendComponent(
             oItem.component,
             sPlant
@@ -252,8 +256,10 @@ sap.ui.define(
           oItem.component = this._toBackendMaterial(
             oCheckResult.component || sComponent
           );
+
           oItem.description = oCheckResult.description || "";
           oItem.uom = oCheckResult.uom || "";
+          oItem.sortString = sExistingSortString;
         }
 
         ItemModel.setItems(oItemModel, aItems);
@@ -275,6 +281,7 @@ sap.ui.define(
         aItems.forEach(
           function (oItem) {
             oItem.component = this._toBackendMaterial(oItem.component);
+            oItem.sortString = this._getCopiedBomSortString(oItem);
           }.bind(this)
         );
 
@@ -374,6 +381,7 @@ sap.ui.define(
           oItemModel.setProperty(sPath + "/component", "");
           oItemModel.setProperty(sPath + "/description", "");
           oItemModel.setProperty(sPath + "/uom", "");
+          oItemModel.setProperty(sPath + "/sortString", "");
           return;
         }
 
@@ -392,6 +400,7 @@ sap.ui.define(
         oItemModel.setProperty(sPath + "/component", sComponent);
         oItemModel.setProperty(sPath + "/description", "");
         oItemModel.setProperty(sPath + "/uom", "");
+        oItemModel.setProperty(sPath + "/sortString", "");
 
         var bValid = await ItemScreenService.fillComponentDetails(
           this.getOwnerComponent().getModel(),
@@ -431,6 +440,8 @@ sap.ui.define(
             continue;
           }
 
+          var sExistingSortString = this._getCopiedBomSortString(oItem);
+
           var sComponent = await this._resolveBackendComponent(
             oItem.component,
             sPlant
@@ -438,29 +449,49 @@ sap.ui.define(
 
           oItem.component = sComponent;
 
-          if (oItem.description && oItem.uom) {
-            continue;
-          }
+          if (!oItem.description || !oItem.uom) {
+            oItem.description = "";
+            oItem.uom = "";
 
-          oItem.description = "";
-          oItem.uom = "";
-
-          var oResult = await ItemScreenService.checkComponentPlantExtension(
-            oODataModel,
-            sComponent,
-            sPlant
-          );
-
-          if (oResult.valid) {
-            oItem.component = this._toBackendMaterial(
-              oResult.component || sComponent
+            var oResult = await ItemScreenService.checkComponentPlantExtension(
+              oODataModel,
+              sComponent,
+              sPlant
             );
-            oItem.description = oResult.description || "";
-            oItem.uom = oResult.uom || "";
+
+            if (oResult.valid) {
+              oItem.component = this._toBackendMaterial(
+                oResult.component || sComponent
+              );
+              oItem.description = oResult.description || "";
+              oItem.uom = oResult.uom || "";
+            }
           }
+
+          oItem.sortString = sExistingSortString;
         }
 
         ItemModel.setItems(oItemModel, aItems);
+      },
+
+      _getCopiedBomSortString: function (oItem) {
+        if (!oItem) {
+          return "";
+        }
+
+        return String(
+          oItem.sortString ||
+            oItem.SortString ||
+            oItem.BOMItemSorter ||
+            oItem.BomItemSorter ||
+            oItem.bomItemSorter ||
+            oItem.Zcomb ||
+            oItem.ZCOMB ||
+            oItem.zcomb ||
+            ""
+        )
+          .trim()
+          .toUpperCase();
       },
 
       onComponentValueHelp: function (oEvent) {
@@ -525,6 +556,7 @@ sap.ui.define(
           sPath + "/uom",
           ItemScreenService.getComponentUom(oData)
         );
+        oItemModel.setProperty(sPath + "/sortString", "");
       },
 
       onSortStringValueHelp: function (oEvent) {
@@ -556,27 +588,32 @@ sap.ui.define(
 
       _openSortStringValueHelp: function () {
         var that = this;
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-        var sMaterial = oHeaderModel
-          ? oHeaderModel.getProperty("/Material")
-          : "";
+        var oContext = this._oCurrentSortStringContext;
 
-        sMaterial = this._toBackendMaterial(sMaterial);
+        if (!oContext) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
 
-        if (!sMaterial) {
-          MessageBox.warning("Please enter header material first.");
+        var oItem = oContext.getObject ? oContext.getObject() : null;
+        var sComponent = oItem ? oItem.component : "";
+
+        sComponent = this._toBackendMaterial(sComponent);
+
+        if (!sComponent) {
+          MessageBox.warning("Please enter/select component first.");
           return;
         }
 
         BusyIndicator.show(0);
 
-        ItemScreenService.loadSortStringVHData(this, sMaterial)
+        ItemScreenService.loadSortStringVHData(this, sComponent)
           .then(function (oLocalModel) {
             var aItems = oLocalModel.getProperty("/items") || [];
 
             if (!aItems.length) {
               MessageBox.warning(
-                "No sort string found for product " + sMaterial + "."
+                "No sort string found for component " + sComponent + "."
               );
               return;
             }

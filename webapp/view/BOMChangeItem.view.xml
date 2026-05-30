@@ -221,14 +221,14 @@
                                 />
 
                                 <Input
-                                    value="{itemModel>sortString}"
-                                    showValueHelp="true"
-                                    valueHelpRequest=".onSortStringValueHelp"
-                                    change=".onSortStringChange"
-                                    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
-                                    maxLength="10"
-                                    placeholder="Sort String"
-                                />
+    value="{itemModel>sortStringValue}"
+    showValueHelp="true"
+    valueHelpRequest=".onSortStringValueHelp"
+    change=".onSortStringChange"
+    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
+    maxLength="10"
+    placeholder="Sort String"
+/>
 
                                 <Input
                                     value="{itemModel>category}"

@@ -474,23 +474,35 @@ sap.ui.define(
           );
         });
 
-        return aResponseItems.map(function (oItem, iIndex) {
-          return {
-            item: FormatterHelper.formatItemNumber(iIndex + 1),
-            component: FormatterHelper.formatComponentForDisplay(
-              oItem.BillOfMaterialComponent || ""
-            ),
-            description: "",
-            quantity: FormatterHelper.formatQuantityForDisplay(
-              oItem.BillOfMaterialItemQuantity
-            ),
-            uom: oItem.BillOfMaterialItemUnit || "",
-            sortString: "",
-            category: "L",
-            originalItemNumber: oItem.BillOfMaterialItemNumber || "",
-            isCopied: true
-          };
-        });
+      return aResponseItems.map(function (oItem, iIndex) {
+  return {
+    item: FormatterHelper.formatItemNumber(iIndex + 1),
+    component: FormatterHelper.formatComponentForDisplay(
+      oItem.BillOfMaterialComponent || ""
+    ),
+    description: "",
+    quantity: FormatterHelper.formatQuantityForDisplay(
+      oItem.BillOfMaterialItemQuantity
+    ),
+    uom: oItem.BillOfMaterialItemUnit || "",
+    sortString: String(
+      oItem.BOMItemSorter ||
+        oItem.BomItemSorter ||
+        oItem.bomItemSorter ||
+        oItem.SortString ||
+        oItem.sortString ||
+        oItem.Zcomb ||
+        oItem.ZCOMB ||
+        oItem.zcomb ||
+        ""
+    )
+      .trim()
+      .toUpperCase(),
+    category: "L",
+    originalItemNumber: oItem.BillOfMaterialItemNumber || "",
+    isCopied: true
+  };
+});
       },
 
       onMaterialValueHelp: function () {

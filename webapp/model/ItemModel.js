@@ -196,10 +196,10 @@ sap.ui.define(
          * Remaining selected sort strings duplicate the row.
          */
         for (var i = 1; i < aSelectedZcomb.length; i++) {
-          var oNewRow = Object.assign({}, oBaseRow);
+  var oNewRow = JSON.parse(JSON.stringify(oBaseRow));
 
-          oNewRow.item = this.formatNextItemNumber(aItems);
-          oNewRow.sortString = aSelectedZcomb[i];
+  oNewRow.item = this.formatNextItemNumber(aItems);
+  oNewRow.sortString = aSelectedZcomb[i];
 
           /*
            * For Create BOM, duplicated rows are just new frontend rows.
