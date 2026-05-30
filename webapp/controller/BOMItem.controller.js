@@ -587,52 +587,54 @@ sap.ui.define(
       },
 
       _openSortStringValueHelp: function () {
-        var that = this;
-        var oContext = this._oCurrentSortStringContext;
+  var that = this;
+  var oContext = this._oCurrentSortStringContext;
 
-        if (!oContext) {
-          MessageBox.error("Could not determine selected item row.");
-          return;
+  if (!oContext) {
+    MessageBox.error("Could not determine selected item row.");
+    return;
+  }
+
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+  var sHeaderMaterial = oHeaderModel
+    ? oHeaderModel.getProperty("/Material")
+    : "";
+
+  sHeaderMaterial = this._toBackendMaterial(sHeaderMaterial);
+
+  if (!sHeaderMaterial) {
+    MessageBox.warning("Please enter/select header material first.");
+    return;
+  }
+
+  BusyIndicator.show(0);
+
+  ItemScreenService.loadSortStringVHData(this, sHeaderMaterial)
+    .then(function (oLocalModel) {
+      var aItems = oLocalModel.getProperty("/items") || [];
+
+      if (!aItems.length) {
+        MessageBox.warning(
+          "No sort string found for header material " + sHeaderMaterial + "."
+        );
+        return;
+      }
+
+      ItemValueHelpHelper.openSortStringValueHelp(
+        that,
+        oLocalModel,
+        function (aSelectedZcomb) {
+          that._applySortStringSelectionsToRow(aSelectedZcomb);
         }
-
-        var oItem = oContext.getObject ? oContext.getObject() : null;
-        var sComponent = oItem ? oItem.component : "";
-
-        sComponent = this._toBackendMaterial(sComponent);
-
-        if (!sComponent) {
-          MessageBox.warning("Please enter/select component first.");
-          return;
-        }
-
-        BusyIndicator.show(0);
-
-        ItemScreenService.loadSortStringVHData(this, sComponent)
-          .then(function (oLocalModel) {
-            var aItems = oLocalModel.getProperty("/items") || [];
-
-            if (!aItems.length) {
-              MessageBox.warning(
-                "No sort string found for component " + sComponent + "."
-              );
-              return;
-            }
-
-            ItemValueHelpHelper.openSortStringValueHelp(
-              that,
-              oLocalModel,
-              function (aSelectedZcomb) {
-                that._applySortStringSelectionsToRow(aSelectedZcomb);
-              }
-            );
-          })
-          .catch(function (oError) {
-            MessageBox.error(that._getErrorText(oError));
-          })
-          .finally(function () {
-            BusyIndicator.hide();
-          });
-      },
+      );
+    })
+    .catch(function (oError) {
+      MessageBox.error(that._getErrorText(oError));
+    })
+    .finally(function () {
+      BusyIndicator.hide();
+    });
+},
 
       _applySortStringSelectionsToRow: function (aSelectedZcomb) {
         var oContext = this._oCurrentSortStringContext;
