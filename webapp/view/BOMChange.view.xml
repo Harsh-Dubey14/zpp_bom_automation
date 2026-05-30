@@ -9,12 +9,20 @@
     <Page
         id="pageBOMChange"
         title="Change BOM"
-        showNavButton="false"
+        showNavButton="true"
+        navButtonPress=".onNavBack"
         backgroundDesign="Standard"
     >
         <customHeader>
             <Bar>
                 <contentLeft>
+                    <Button
+                        icon="sap-icon://nav-back"
+                        type="Transparent"
+                        tooltip="Back"
+                        press=".onNavBack"
+                    />
+
                     <Title
                         text="Change BOM"
                         level="H2"
@@ -23,13 +31,6 @@
                 </contentLeft>
 
                 <contentRight>
-                    <!-- <Button
-                        icon="sap-icon://search"
-                        tooltip="Get BOM Components"
-                        type="Emphasized"
-                        press=".onGetBOMComponents"
-                    /> -->
-
                     <Button
                         icon="sap-icon://action"
                         tooltip="Continue"
@@ -82,10 +83,32 @@
                             value="{changeModel>/Material}"
                             showValueHelp="true"
                             valueHelpRequest=".onMaterialValueHelp"
-                            liveChange=".onMaterialSearchFieldChange"
+                            showSuggestion="true"
+                            liveChange=".onMaterialLiveChange"
+                            suggestionItemSelected=".onMaterialSuggestionSelected"
+                            suggestionRows="{materialSuggestModel>/items}"
                             maxLength="40"
-                            placeholder="Enter Material"
-                        />
+                            placeholder="Enter Material / Description"
+                        >
+                            <suggestionColumns>
+                                <Column>
+                                    <Label text="Product" />
+                                </Column>
+
+                                <Column>
+                                    <Label text="Description" />
+                                </Column>
+                            </suggestionColumns>
+
+                            <suggestionRows>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Text text="{materialSuggestModel>Product}" />
+                                        <Text text="{materialSuggestModel>ProductDescription}" />
+                                    </cells>
+                                </ColumnListItem>
+                            </suggestionRows>
+                        </Input>
 
                         <Label
                             text="Plant"
@@ -97,10 +120,32 @@
                             value="{changeModel>/Plant}"
                             showValueHelp="true"
                             valueHelpRequest=".onPlantValueHelp"
-                            liveChange=".onMaterialSearchFieldChange"
+                            showSuggestion="true"
+                            liveChange=".onPlantLiveChange"
+                            suggestionItemSelected=".onPlantSuggestionSelected"
+                            suggestionRows="{plantSuggestModel>/items}"
                             maxLength="4"
                             placeholder="Enter Plant"
-                        />
+                        >
+                            <suggestionColumns>
+                                <Column>
+                                    <Label text="Plant" />
+                                </Column>
+
+                                <Column>
+                                    <Label text="Name" />
+                                </Column>
+                            </suggestionColumns>
+
+                            <suggestionRows>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Text text="{plantSuggestModel>Plant}" />
+                                        <Text text="{plantSuggestModel>PlantName}" />
+                                    </cells>
+                                </ColumnListItem>
+                            </suggestionRows>
+                        </Input>
 
                         <Label
                             text="BOM Usage"
