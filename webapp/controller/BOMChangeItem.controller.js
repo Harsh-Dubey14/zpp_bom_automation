@@ -7,6 +7,10 @@ sap.ui.define(
         "sap/m/MessageBox",
         "sap/ui/core/BusyIndicator",
         "sap/ui/model/json/JSONModel",
+        "sap/m/SelectDialog",
+        "sap/m/StandardListItem",
+        "sap/ui/model/Filter",
+        "sap/ui/model/FilterOperator",
         "zppbomautomation/config/Constants",
         "zppbomautomation/model/ItemModel",
         "zppbomautomation/model/ResultModel",
@@ -21,6 +25,10 @@ sap.ui.define(
         MessageBox,
         BusyIndicator,
         JSONModel,
+        SelectDialog,
+        StandardListItem,
+        Filter,
+        FilterOperator,
         Constants,
         ItemModel,
         ResultModel,
@@ -39,6 +47,9 @@ sap.ui.define(
                 this._oSortStringVHModel = null;
                 this._oCurrentComponentContext = null;
                 this._oCurrentSortStringContext = null;
+                this._oCurrentUomContext = null;
+                this._oUomVHDialog = null;
+                this._bPostingInProgress = false;
 
                 this.getOwnerComponent()
                     .getRouter()
@@ -68,7 +79,19 @@ sap.ui.define(
                     return;
                 }
 
-                aFetchedItems = this._normalizeFetchedChangeItems(aFetchedItems);
+                /*
+                 * Header-only BOM:
+                 * Backend may return one row with RowStatus = HEADER.
+                 * That row should populate header model only.
+                 * It must not become an editable item row.
+                 */
+                var aRealItemRows = aFetchedItems.filter(
+                    function (oItem) {
+                        return !this._isHeaderOnlyBomRow(oItem);
+                    }.bind(this)
+                );
+
+                aRealItemRows = this._normalizeFetchedChangeItems(aRealItemRows);
 
                 var oHeaderModel = new JSONModel(
                     this._normalizeChangeHeaderData(oHeaderData, aFetchedItems[0])
@@ -79,13 +102,23 @@ sap.ui.define(
 
                 var oItemModel = ItemModel.init(this.getOwnerComponent(), this.getView());
 
-                ItemModel.setItems(oItemModel, aFetchedItems);
+                ItemModel.setItems(oItemModel, aRealItemRows);
                 oItemModel.setProperty("/pendingDeletes", []);
 
                 this.getView().setModel(oItemModel, "itemModel");
 
                 ResultModel.reset(this.getView().getModel("resultModel"));
                 this._setResultInitial(this.getView().getModel("resultModel"));
+
+                if (!aRealItemRows.length) {
+                    this._setResultReadyForHeaderOnly(
+                        this.getView().getModel("resultModel"),
+                        "BOM header loaded. No existing BOM items found. You can add new items."
+                    );
+
+                    MessageToast.show("BOM header loaded. No existing items found.");
+                    return;
+                }
 
                 await this._fillChangeModeComponentDetails();
             },
@@ -328,6 +361,11 @@ sap.ui.define(
                 var oItemModel = this.getOwnerComponent().getModel("itemModel");
                 var aSelectedItems = oTable.getSelectedItems();
 
+                if (this._bPostingInProgress) {
+                    MessageToast.show("Posting is in progress. Please wait.");
+                    return;
+                }
+
                 if (aSelectedItems.length === 0) {
                     MessageToast.show("Please select items to delete.");
                     return;
@@ -357,7 +395,7 @@ sap.ui.define(
                     .forEach(function (iIndex) {
                         var oItem = aItems[iIndex];
 
-                        if (!oItem) {
+                        if (!oItem || this._isHeaderOnlyBomRow(oItem)) {
                             return;
                         }
 
@@ -374,11 +412,35 @@ sap.ui.define(
 
                         aPendingDeletes.push(oItem);
                         aItems.splice(iIndex, 1);
-                    });
+                    }.bind(this));
 
                 oItemModel.setProperty("/items", aItems);
-                oItemModel.setProperty("/pendingDeletes", aPendingDeletes);
+                oItemModel.setProperty(
+                    "/pendingDeletes",
+                    this._deduplicatePendingDeletes(aPendingDeletes)
+                );
                 oItemModel.refresh(true);
+            },
+
+            _deduplicatePendingDeletes: function (aPendingDeletes) {
+                var mSeen = {};
+
+                return (aPendingDeletes || []).filter(function (oItem) {
+                    var sKey = [
+                        oItem.billOfMaterial || "",
+                        oItem.billOfMaterialVariant || "",
+                        oItem.billOfMaterialItemNodeNumber || "",
+                        oItem.component || "",
+                        oItem.item || ""
+                    ].join("|");
+
+                    if (mSeen[sKey]) {
+                        return false;
+                    }
+
+                    mSeen[sKey] = true;
+                    return true;
+                });
             },
 
             onSelectAll: function () {
@@ -432,6 +494,151 @@ sap.ui.define(
                 }
             },
 
+            onUomValueHelp: function (oEvent) {
+                var oInput = oEvent.getSource();
+
+                this._oCurrentUomContext = oInput.getBindingContext("itemModel");
+
+                if (!this._oCurrentUomContext) {
+                    MessageBox.error("Could not determine selected item row.");
+                    return;
+                }
+
+                this._openUomValueHelp();
+            },
+
+            _openUomValueHelp: function () {
+                var that = this;
+                var oContext = this._oCurrentUomContext;
+
+                if (!oContext) {
+                    MessageBox.error("Could not determine selected item row.");
+                    return;
+                }
+
+                var oItem = oContext.getObject();
+                var sComponent = this._toBackendMaterial(oItem.component || "");
+
+                if (!sComponent) {
+                    MessageBox.warning("Please enter/select component first.");
+                    return;
+                }
+
+                BusyIndicator.show(0);
+
+                ItemScreenService.loadProductUomVHData(this, sComponent)
+                    .then(function (oLocalModel) {
+                        var aItems = oLocalModel.getProperty("/items") || [];
+
+                        if (!aItems.length) {
+                            MessageBox.warning("No UOM found for component " + sComponent + ".");
+                            return;
+                        }
+
+                        that._openUomSelectionDialog(oLocalModel);
+                    })
+                    .catch(function (oError) {
+                        MessageBox.error(that._getErrorText(oError));
+                    })
+                    .finally(function () {
+                        BusyIndicator.hide();
+                    });
+            },
+
+            _openUomSelectionDialog: function (oLocalModel) {
+                var that = this;
+
+                if (!this._oUomVHDialog) {
+                    this._oUomVHDialog = new SelectDialog({
+                        title: "Select UOM",
+                        multiSelect: false,
+
+                        search: function (oEvent) {
+                            var sValue = oEvent.getParameter("value") || "";
+                            var oBinding = oEvent.getSource().getBinding("items");
+
+                            if (!oBinding) {
+                                return;
+                            }
+
+                            oBinding.filter([
+                                new Filter({
+                                    filters: [
+                                        new Filter("AlternativeUnit", FilterOperator.Contains, sValue),
+                                        new Filter("BaseUnit", FilterOperator.Contains, sValue),
+                                        new Filter("Product", FilterOperator.Contains, sValue)
+                                    ],
+                                    and: false
+                                })
+                            ]);
+                        },
+
+                        confirm: function (oEvent) {
+                            var oSelectedItem = oEvent.getParameter("selectedItem");
+
+                            if (!oSelectedItem) {
+                                return;
+                            }
+
+                            var oData = oSelectedItem
+                                .getBindingContext("uomVHModel")
+                                .getObject();
+
+                            that._applyUomSelection(oData);
+                        },
+
+                        cancel: function () {
+                            that._oCurrentUomContext = null;
+                        }
+                    });
+
+                    this.getView().addDependent(this._oUomVHDialog);
+                }
+
+                this._oUomVHDialog.setModel(oLocalModel, "uomVHModel");
+
+                this._oUomVHDialog.bindAggregation("items", {
+                    path: "uomVHModel>/items",
+                    template: new StandardListItem({
+                        title: "{uomVHModel>AlternativeUnit}",
+                        description: "Product: {uomVHModel>Product} | Base Unit: {uomVHModel>BaseUnit}"
+                    })
+                });
+
+                this._oUomVHDialog.open();
+            },
+
+            _applyUomSelection: function (oData) {
+                var oContext = this._oCurrentUomContext;
+
+                if (!oContext) {
+                    MessageBox.error("Could not determine selected item row.");
+                    return;
+                }
+
+                var sUom = String(
+                    oData.AlternativeUnit ||
+                    oData.alternativeUnit ||
+                    ""
+                ).trim().toUpperCase();
+
+                if (!sUom) {
+                    MessageBox.warning("Selected UOM is blank.");
+                    return;
+                }
+
+                var oItemModel = oContext.getModel();
+                var sPath = oContext.getPath();
+
+                oItemModel.setProperty(sPath + "/uom", sUom);
+
+                this._markRowChanged(oContext);
+
+                this._oCurrentUomContext = null;
+
+                MessageToast.show("UOM selected: " + sUom);
+            },
+
             onComponentChange: async function (oEvent) {
                 var oInput = oEvent.getSource();
                 var oContext = oInput.getBindingContext("itemModel");
@@ -483,6 +690,12 @@ sap.ui.define(
                         sComponent,
                         sPlant
                     );
+
+                    /*
+                     * UOM must come from user.
+                     * If fillComponentDetails filled UOM internally, clear it again.
+                     */
+                    oItemModel.setProperty(sPath + "/uom", "");
 
                     this._markRowChanged(oContext);
 
@@ -558,11 +771,12 @@ sap.ui.define(
                     sPath + "/description",
                     ItemScreenService.getComponentDescription(oData)
                 );
-                oItemModel.setProperty(
-                    sPath + "/uom",
-                    ItemScreenService.getComponentUom(oData)
-                );
 
+                /*
+                 * Component changed/selected, so clear UOM.
+                 * User must choose or enter UOM manually.
+                 */
+                oItemModel.setProperty(sPath + "/uom", "");
                 oItemModel.setProperty(sPath + "/sortStringValue", "");
 
                 this._markRowChanged(oContext);
@@ -789,6 +1003,14 @@ sap.ui.define(
 
             _saveChangeBomItems: async function () {
                 var oResultModel = this.getView().getModel("resultModel");
+                var bBackendWasCalled = false;
+
+                if (this._bPostingInProgress) {
+                    MessageToast.show("Posting is already in progress.");
+                    return;
+                }
+
+                this._bPostingInProgress = true;
 
                 try {
                     var oValidation = await this._validateChangeRowsBeforeSave();
@@ -808,24 +1030,48 @@ sap.ui.define(
                     this._setResultBusy(oResultModel, "Posting BOM changes...");
                     BusyIndicator.show(0);
 
-                    for (var i = 0; i < aPayloads.length; i++) {
-                        var oResponse = await BomActionService.changeBomItem(
-                            this.getOwnerComponent().getModel(),
-                            aPayloads[i]
-                        );
+                    bBackendWasCalled = true;
 
-                        if (!this._isBackendActionSuccess(oResponse)) {
-                            throw {
-                                message:
-                                    "Item " +
-                                    (aPayloads[i].BillOfMaterialItemNumber || i + 1) +
-                                    " failed. " +
-                                    this._getBackendActionMessage(oResponse)
-                            };
+                    var oResponse = await BomActionService.changeBomItems(
+                        this.getOwnerComponent().getModel(),
+                        {
+                            RequestId: "BOM_CHANGE_SAVE",
+                            ItemsJson: JSON.stringify(aPayloads)
                         }
+                    );
+
+                    var aResults = this._extractMassChangeResults(oResponse);
+
+                    if (!aResults.length) {
+                        throw {
+                            message: "No response returned from mass BOM change action."
+                        };
                     }
 
+                    var aFailedResults = aResults.filter(
+                        function (oResult) {
+                            return !this._isBackendActionSuccess(oResult);
+                        }.bind(this)
+                    );
+
                     await this._refreshChangeBomItemsAfterSave();
+
+                    if (aFailedResults.length) {
+                        var sCompactMessage = this._formatMassFailureMessage(
+                            aFailedResults,
+                            aResults
+                        );
+
+                        var sFullMessage = this._formatMassFailureMessage(
+                            aFailedResults,
+                            aResults,
+                            true
+                        );
+
+                        this._setResultError(oResultModel, sFullMessage);
+                        MessageBox.error(sCompactMessage);
+                        return;
+                    }
 
                     this._setResultSuccess(
                         oResultModel,
@@ -836,9 +1082,25 @@ sap.ui.define(
                 } catch (oError) {
                     var sErrorText = this._getErrorText(oError);
 
+                    if (bBackendWasCalled) {
+                        try {
+                            await this._refreshChangeBomItemsAfterSave();
+
+                            sErrorText =
+                                sErrorText +
+                                "\n\nBOM was refreshed because some operations may have already been posted.";
+                        } catch (oRefreshError) {
+                            sErrorText =
+                                sErrorText +
+                                "\n\nAdditionally, refresh failed: " +
+                                this._getErrorText(oRefreshError);
+                        }
+                    }
+
                     this._setResultError(oResultModel, sErrorText);
-                    MessageBox.error(sErrorText);
+                    MessageBox.error(this._compactLongMessage(sErrorText));
                 } finally {
+                    this._bPostingInProgress = false;
                     BusyIndicator.hide();
                 }
             },
@@ -860,10 +1122,21 @@ sap.ui.define(
                     };
                 }
 
+                /*
+                 * Remove header-only placeholder rows if any old state still has them.
+                 */
+                aItems = aItems.filter(function (oItem) {
+                    return !this._isHeaderOnlyBomRow(oItem);
+                }.bind(this));
+
+                if (oItemModel) {
+                    ItemModel.setItems(oItemModel, aItems);
+                }
+
                 if (!aItems.length && !aPendingDeletes.length) {
                     return {
                         valid: false,
-                        message: "No BOM items found."
+                        message: "No BOM item changes found. Please add an item first."
                     };
                 }
 
@@ -933,6 +1206,15 @@ sap.ui.define(
                         };
                     }
 
+                    oItem.uom = String(oItem.uom || "").trim().toUpperCase();
+
+                    if (!oItem.uom) {
+                        return {
+                            valid: false,
+                            message: "Row " + (i + 1) + ": UOM is mandatory."
+                        };
+                    }
+
                     var sComponent = await this._resolveBackendComponent(
                         oItem.component,
                         sPlant
@@ -964,17 +1246,6 @@ sap.ui.define(
                     );
 
                     oItem.description = oCheckResult.description || oItem.description || "";
-
-                    if (oCheckResult.uom) {
-                        oItem.uom = oCheckResult.uom;
-                    }
-
-                    if (!oItem.uom) {
-                        return {
-                            valid: false,
-                            message: "Row " + (i + 1) + ": UOM is mandatory."
-                        };
-                    }
 
                     oItem.sortStringValue = this._cleanSortString(
                         oItem.sortStringValue || ""
@@ -1008,6 +1279,12 @@ sap.ui.define(
                 var aPendingDeletes = oItemModel
                     ? oItemModel.getProperty("/pendingDeletes") || []
                     : [];
+
+                aItems = aItems.filter(function (oItem) {
+                    return !this._isHeaderOnlyBomRow(oItem);
+                }.bind(this));
+
+                aPendingDeletes = this._deduplicatePendingDeletes(aPendingDeletes);
 
                 var aVisiblePayloads = aItems
                     .filter(function (oItem) {
@@ -1135,6 +1412,7 @@ sap.ui.define(
 
                 ItemModel.setItems(oItemModel, aRows);
                 oItemModel.setProperty("/pendingDeletes", []);
+                oItemModel.refresh(true);
 
                 await this._fillChangeModeComponentDetails();
 
@@ -1208,16 +1486,22 @@ sap.ui.define(
                 aBackendItems = aBackendItems.filter(function (oItem) {
                     return (
                         oItem &&
-                        (oItem.BillOfMaterialComponent ||
+                        !this._isHeaderOnlyBomRow(oItem) &&
+                        (
+                            oItem.BillOfMaterialComponent ||
+                            oItem.billOfMaterialComponent ||
                             oItem.BillOfMaterialItemNumber ||
-                            oItem.BillOfMaterialItemNodeNumber)
+                            oItem.billOfMaterialItemNumber ||
+                            oItem.BillOfMaterialItemNodeNumber ||
+                            oItem.billOfMaterialItemNodeNumber
+                        )
                     );
-                });
+                }.bind(this));
 
                 aBackendItems.sort(function (a, b) {
                     return (
-                        Number(a.BillOfMaterialItemNumber || 0) -
-                        Number(b.BillOfMaterialItemNumber || 0)
+                        Number(a.BillOfMaterialItemNumber || a.billOfMaterialItemNumber || 0) -
+                        Number(b.BillOfMaterialItemNumber || b.billOfMaterialItemNumber || 0)
                     );
                 });
 
@@ -1242,7 +1526,8 @@ sap.ui.define(
 
                     if (
                         !oItem.component ||
-                        oItem.rowStatus === Constants.ROW_STATUS.DELETED
+                        oItem.rowStatus === Constants.ROW_STATUS.DELETED ||
+                        this._isHeaderOnlyBomRow(oItem)
                     ) {
                         continue;
                     }
@@ -1250,6 +1535,8 @@ sap.ui.define(
                     var sExistingSortString = this._cleanSortString(
                         oItem.sortStringValue || ""
                     );
+
+                    var sExistingUom = String(oItem.uom || "").trim().toUpperCase();
 
                     var sComponent = await this._resolveBackendComponent(
                         oItem.component,
@@ -1271,9 +1558,7 @@ sap.ui.define(
                             oItem.description = oResult.description || "";
                         }
 
-                        if (!oItem.uom) {
-                            oItem.uom = oResult.uom || "";
-                        }
+                        oItem.uom = sExistingUom;
                     }
 
                     oItem.sortStringValue = sExistingSortString;
@@ -1345,6 +1630,8 @@ sap.ui.define(
 
                         oRow.uom =
                             oRow.uom ||
+                            oItem.DisplayBillOfMaterialItemUnit ||
+                            oItem.displayBillOfMaterialItemUnit ||
                             oItem.BillOfMaterialItemUnit ||
                             oItem.billOfMaterialItemUnit ||
                             oItem.Uom ||
@@ -1436,6 +1723,83 @@ sap.ui.define(
                 );
             },
 
+         _isHeaderOnlyBomRow: function (oItem) {
+    if (!oItem) {
+        return false;
+    }
+
+    /*
+     * Frontend-created rows must never be treated as header-only.
+     */
+    if (
+        oItem.rowStatus === Constants.ROW_STATUS.NEW ||
+        oItem.rowStatus === Constants.ROW_STATUS.CHANGED ||
+        oItem.rowStatus === Constants.ROW_STATUS.DELETED ||
+        oItem.isNew === true ||
+        oItem.isChanged === true ||
+        oItem.isDeleted === true ||
+        oItem.changeMode
+    ) {
+        return false;
+    }
+
+    /*
+     * If the row has any frontend item-level data, it is a real item row.
+     */
+    if (
+        oItem.component ||
+        oItem.item ||
+        oItem.quantity ||
+        oItem.uom ||
+        oItem.sortStringValue ||
+        oItem.description ||
+        oItem.billOfMaterialItemNodeNumber ||
+        oItem.originalItemNumber
+    ) {
+        return false;
+    }
+
+    /*
+     * If the row has any backend item-level data, it is a real item row.
+     */
+    if (
+        oItem.BillOfMaterialComponent ||
+        oItem.billOfMaterialComponent ||
+        oItem.Component ||
+        oItem.component ||
+        oItem.BillOfMaterialItemNumber ||
+        oItem.billOfMaterialItemNumber ||
+        oItem.BillOfMaterialItemNodeNumber ||
+        oItem.billOfMaterialItemNodeNumber ||
+        oItem.BillOfMaterialItemQuantity ||
+        oItem.billOfMaterialItemQuantity ||
+        oItem.BillOfMaterialItemUnit ||
+        oItem.billOfMaterialItemUnit
+    ) {
+        return false;
+    }
+
+    /*
+     * Only explicit backend header marker should be treated as header-only.
+     */
+    if (
+        oItem.RowStatus === "HEADER" ||
+        oItem.rowStatus === "HEADER" ||
+        oItem.isHeaderOnly === true
+    ) {
+        return true;
+    }
+
+    /*
+     * Safety fallback:
+     * BOM header exists and no item-level fields exist.
+     */
+    return !!(
+        oItem.BillOfMaterial ||
+        oItem.billOfMaterial
+    );
+},
+
             _getRealBackendSortString: function (oItem) {
                 if (!oItem) {
                     return "";
@@ -1492,7 +1856,11 @@ sap.ui.define(
                 var sPath = oContext.getPath();
                 var oItem = oItemModel.getProperty(sPath);
 
-                if (!oItem || oItem.rowStatus === Constants.ROW_STATUS.DELETED) {
+                if (
+                    !oItem ||
+                    oItem.rowStatus === Constants.ROW_STATUS.DELETED ||
+                    this._isHeaderOnlyBomRow(oItem)
+                ) {
                     return;
                 }
 
@@ -1630,6 +1998,109 @@ sap.ui.define(
                 return false;
             },
 
+            _extractMassChangeResults: function (oResponse) {
+                if (!oResponse) {
+                    return [];
+                }
+
+                if (Array.isArray(oResponse)) {
+                    return oResponse;
+                }
+
+                if (Array.isArray(oResponse.value)) {
+                    return oResponse.value;
+                }
+
+                if (Array.isArray(oResponse.results)) {
+                    return oResponse.results;
+                }
+
+                if (oResponse.d && Array.isArray(oResponse.d.results)) {
+                    return oResponse.d.results;
+                }
+
+                if (oResponse.d && Array.isArray(oResponse.d.value)) {
+                    return oResponse.d.value;
+                }
+
+                if (oResponse.d) {
+                    return [oResponse.d];
+                }
+
+                return [oResponse];
+            },
+
+            _formatMassFailureMessage: function (aFailedResults, aAllResults, bFull) {
+                var iFailed = (aFailedResults || []).length;
+                var iTotal = (aAllResults || []).length;
+                var iMaxToShow = bFull ? iFailed : 3;
+
+                var sHeader =
+                    iFailed +
+                    " of " +
+                    iTotal +
+                    " BOM item operation(s) failed.";
+
+                var aLines = (aFailedResults || [])
+                    .slice(0, iMaxToShow)
+                    .map(
+                        function (oResult, iIndex) {
+                            var sItem =
+                                oResult.BillOfMaterialItemNumber ||
+                                oResult.billOfMaterialItemNumber ||
+                                "-";
+
+                            var sComponent =
+                                oResult.BillOfMaterialComponent ||
+                                oResult.billOfMaterialComponent ||
+                                "";
+
+                            var sMessage = this._getBackendActionMessage(oResult);
+
+                            return (
+                                iIndex + 1 +
+                                ". Item " +
+                                sItem +
+                                (sComponent ? " / Component " + sComponent : "") +
+                                ": " +
+                                sMessage
+                            );
+                        }.bind(this)
+                    );
+
+                var sFinalMessage = sHeader;
+
+                if (aLines.length) {
+                    sFinalMessage += "\n\n" + aLines.join("\n");
+                }
+
+                if (!bFull && iFailed > iMaxToShow) {
+                    sFinalMessage +=
+                        "\n\nAnd " +
+                        (iFailed - iMaxToShow) +
+                        " more error(s). The BOM has been refreshed; please check the result message for full details.";
+                }
+
+                return sFinalMessage;
+            },
+
+            _compactLongMessage: function (sMessage) {
+                sMessage = String(sMessage || "");
+
+                var aLines = sMessage.split(/\r?\n/).filter(function (sLine) {
+                    return !!String(sLine || "").trim();
+                });
+
+                if (aLines.length <= 6 && sMessage.length <= 1200) {
+                    return sMessage;
+                }
+
+                return (
+                    aLines.slice(0, 6).join("\n") +
+                    "\n\nMessage is long. Please check the result area for full details."
+                );
+            },
+
             _getBackendActionMessage: function (oResponse) {
                 if (!oResponse) {
                     return "No response returned from backend.";
@@ -1658,6 +2129,27 @@ sap.ui.define(
                 oResultModel.setProperty("/Message", "Ready to post BOM changes.");
                 oResultModel.setProperty("/MessageType", "Information");
                 oResultModel.setProperty("/ShowMessage", false);
+                oResultModel.setProperty("/CanSave", true);
+                oResultModel.setProperty("/Editable", true);
+            },
+
+            _setResultReadyForHeaderOnly: function (oResultModel, sMessage) {
+                if (!oResultModel) {
+                    return;
+                }
+
+                oResultModel.setProperty("/Status", "READY");
+                oResultModel.setProperty("/StatusState", "Information");
+                oResultModel.setProperty(
+                    "/Message",
+                    sMessage || "BOM header loaded. You can add new items."
+                );
+                oResultModel.setProperty("/MessageType", "Information");
+                oResultModel.setProperty("/ShowMessage", true);
+
+                /*
+                 * Header-only BOM should allow Add Row and Save.
+                 */
                 oResultModel.setProperty("/CanSave", true);
                 oResultModel.setProperty("/Editable", true);
             },

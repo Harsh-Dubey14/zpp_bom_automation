@@ -39,13 +39,21 @@ sap.ui.define(
         );
       },
 
-      changeBomItem: function (oModel, oPayload) {
-        return ODataActionHelper.postAction(
-          oModel,
-          Constants.ACTIONS.CHANGE_BOM_ITEM,
-          oPayload
-        );
-      }
+     changeBomItem: function (oModel, oPayload) {
+  return ODataActionHelper.postAction(
+    oModel,
+    Constants.ACTIONS.CHANGE_BOM_ITEM,
+    oPayload
+  );
+},
+
+changeBomItems: function (oModel, oPayload) {
+  return ODataActionHelper.postAction(
+    oModel,
+    Constants.ACTIONS.CHANGE_BOM_ITEMS,
+    oPayload
+  );
+}
     };
   }
 );

@@ -57,6 +57,9 @@ sap.ui.define([], function () {
       CHANGE_BOM_ITEM:
         "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ChangeBOMItem",
 
+      CHANGE_BOM_ITEMS:
+        "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ChangeBOMItems",
+
       CREATE_BOM: "/BomCreate"
     },
 
@@ -75,7 +78,10 @@ sap.ui.define([], function () {
       COMPONENT_SELECT: ["component", "ProductDescription", "uom"],
 
       SORT_STRING_PATH: "/sort_string",
-      SORT_STRING_SELECT: ["Product", "Style", "Zcomb", "ColorName", "sizes"]
+      SORT_STRING_SELECT: ["Product", "Style", "Zcomb", "ColorName", "sizes"],
+
+      PRODUCT_UOM_PATH: "/produtuom",
+      PRODUCT_UOM_SELECT: ["Product", "AlternativeUnit", "BaseUnit"]
     }
   };
 });

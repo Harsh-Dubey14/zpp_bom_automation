@@ -212,13 +212,12 @@
                                     placeholder="Enter Quantity"
                                 />
 
-                                <Input
-                                    value="{itemModel>uom}"
-                                    width="5rem"
-                                    editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
-                                    placeholder="UoM"
-                                    change=".onUomChange"
-                                />
+                             <Input
+    value="{itemModel>uom}"
+    change=".onUomChange"
+    showValueHelp="true"
+    valueHelpRequest=".onUomValueHelp"
+    placeholder="UOM" />
 
                                 <Input
                                     value="{itemModel>sortStringValue}"

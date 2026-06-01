@@ -396,7 +396,31 @@ sap.ui.define(
           })
         };
       },
+loadProductUomVHData: function (oController, sProduct) {
+    var oModel = oController.getOwnerComponent().getModel();
 
+    sProduct = String(sProduct || "").trim();
+
+    if (!sProduct) {
+        return Promise.resolve(new sap.ui.model.json.JSONModel({
+            items: []
+        }));
+    }
+
+    return oModel
+        .bindList(Constants.VALUE_HELP.PRODUCT_UOM_PATH, null, null, null, {
+            $select: Constants.VALUE_HELP.PRODUCT_UOM_SELECT.join(","),
+            $filter: "Product eq '" + String(sProduct).replace(/'/g, "''") + "'"
+        })
+        .requestContexts(0, 5000)
+        .then(function (aContexts) {
+            return new sap.ui.model.json.JSONModel({
+                items: aContexts.map(function (oContext) {
+                    return oContext.getObject();
+                })
+            });
+        });
+},
       extractBillOfMaterial: function (sApiResponse) {
         if (!sApiResponse) {
           return "";
