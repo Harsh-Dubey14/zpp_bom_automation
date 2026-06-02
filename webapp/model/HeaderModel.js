@@ -21,6 +21,7 @@ sap.ui.define(
           ValidFrom: this.getToday(),
           BaseUom: "",
           BomStatus: Constants.BOM_STATUS,
+          HeaderText: "",
 
           CopyMaterial: "",
           CopyPlant: "",
@@ -45,6 +46,7 @@ sap.ui.define(
           ValidFrom: oQuery.ValidFrom || this.getToday(),
           BaseUom: oQuery.BaseUom || "",
           BomStatus: oQuery.BomStatus || Constants.BOM_STATUS,
+          HeaderText: oQuery.HeaderText || "",
 
           CopyMaterial: oQuery.CopyMaterial || "",
           CopyPlant: oQuery.CopyPlant || "",
@@ -63,6 +65,11 @@ sap.ui.define(
 
         if (oExistingModel) {
           oExistingModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+
+          if (oExistingModel.getProperty("/HeaderText") === undefined) {
+            oExistingModel.setProperty("/HeaderText", "");
+          }
+
           oView.setModel(oExistingModel, "headerModel");
           return oExistingModel;
         }
@@ -104,7 +111,10 @@ sap.ui.define(
         oHeaderModel.setProperty("/BaseUom", "");
         oHeaderModel.setProperty("/AltBom", "");
         oHeaderModel.setProperty("/Message", "");
-        oHeaderModel.setProperty("/MessageType", Constants.DEFAULTS.MESSAGE_TYPE);
+        oHeaderModel.setProperty(
+          "/MessageType",
+          Constants.DEFAULTS.MESSAGE_TYPE
+        );
         oHeaderModel.setProperty("/ShowMessage", false);
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
       }

@@ -1,10 +1,14 @@
-/* global Promise */
-
 sap.ui.define(
   [
     "sap/ui/core/mvc/Controller",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
+    "sap/m/TableSelectDialog",
+    "sap/m/ColumnListItem",
+    "sap/m/Column",
+    "sap/m/Text",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
     "sap/ui/model/json/JSONModel",
     "zppbomautomation/config/Constants",
     "zppbomautomation/model/HeaderModel",
@@ -19,6 +23,12 @@ sap.ui.define(
     Controller,
     MessageToast,
     MessageBox,
+    TableSelectDialog,
+    ColumnListItem,
+    Column,
+    Text,
+    Filter,
+    FilterOperator,
     JSONModel,
     Constants,
     HeaderModel,
@@ -38,6 +48,7 @@ sap.ui.define(
 
         this._initSuggestionModels();
         this._warmUpValueHelpCache();
+        this._loadStyleGroupDropdown();
 
         this.getOwnerComponent()
           .getRouter()
@@ -113,6 +124,64 @@ sap.ui.define(
         );
       },
 
+      _loadStyleGroupDropdown: function () {
+  var oView = this.getView();
+  var oMainModel = this.getOwnerComponent().getModel();
+
+  var oStyleGroupModel = new JSONModel({
+    items: [
+      {
+        SrNo: "",
+        StyleGroup: "",
+        Text: "-- Clear --"
+      }
+    ]
+  });
+
+  oView.setModel(oStyleGroupModel, "styleGroupModel");
+
+  if (!oMainModel || !oMainModel.bindList) {
+    return;
+  }
+
+  var oBinding = oMainModel.bindList("/style_group_vh");
+
+  oBinding
+    .requestContexts(0, 1000)
+    .then(function (aContexts) {
+      var aItems = [
+        {
+          SrNo: "",
+          StyleGroup: "",
+          Text: "-- Clear --"
+        }
+      ];
+
+      aContexts.forEach(function (oContext) {
+        var oData = oContext.getObject();
+
+        if (oData && oData.StyleGroup) {
+          aItems.push({
+            SrNo: oData.SrNo || "",
+            StyleGroup: oData.StyleGroup || "",
+            Text: oData.StyleGroup || ""
+          });
+        }
+      });
+
+      oStyleGroupModel.setProperty("/items", aItems);
+    })
+    .catch(function () {
+      oStyleGroupModel.setProperty("/items", [
+        {
+          SrNo: "",
+          StyleGroup: "",
+          Text: "-- Clear --"
+        }
+      ]);
+    });
+},
+
       _resetHeaderAndItemDraftData: function (oHeaderModel) {
         HeaderModel.reset(oHeaderModel);
         ItemModel.reset(this.getOwnerComponent().getModel("itemModel"));
@@ -147,6 +216,7 @@ sap.ui.define(
                 BomStatus: this._encodeRouteValue(
                   oHeader.BomStatus || Constants.BOM_STATUS
                 ),
+                HeaderText: this._encodeRouteValue(oHeader.HeaderText || ""),
 
                 CopyMaterial: this._encodeRouteValue(
                   oHeader.CopyMaterial || ""
@@ -182,6 +252,21 @@ sap.ui.define(
         if (this._isCopyFromField(oEvent)) {
           this._normalizeCopyFromInput(oEvent);
           this._clearCopiedItems();
+          this._syncHeaderToRoute();
+          return;
+        }
+
+        if (
+          oEvent &&
+          oEvent.getSource &&
+          oEvent.getSource().getId().indexOf("inpHeaderText") !== -1
+        ) {
+          oHeaderModel.setProperty(
+            "/HeaderText",
+            String(oEvent.getSource().getValue() || "")
+          );
+
+          HeaderModel.clearValidation(oHeaderModel);
           this._syncHeaderToRoute();
           return;
         }
@@ -482,7 +567,7 @@ sap.ui.define(
         if (bShowToast) {
           MessageToast.show(
             oAltBomResponse.Message ||
-              "Material and Plant are valid. Alternate BOM fetched."
+            "Material and Plant are valid. Alternate BOM fetched."
           );
         }
 
@@ -666,14 +751,14 @@ sap.ui.define(
             uom: oItem.BillOfMaterialItemUnit || "",
             sortString: String(
               oItem.BOMItemSorter ||
-                oItem.BomItemSorter ||
-                oItem.bomItemSorter ||
-                oItem.SortString ||
-                oItem.sortString ||
-                oItem.Zcomb ||
-                oItem.ZCOMB ||
-                oItem.zcomb ||
-                ""
+              oItem.BomItemSorter ||
+              oItem.bomItemSorter ||
+              oItem.SortString ||
+              oItem.sortString ||
+              oItem.Zcomb ||
+              oItem.ZCOMB ||
+              oItem.zcomb ||
+              ""
             )
               .trim()
               .toUpperCase(),
@@ -788,6 +873,107 @@ sap.ui.define(
             that._syncHeaderToRoute();
           });
       },
+
+   onHeaderTextValueHelp: function () {
+  var oView = this.getView();
+
+  if (!this._oHeaderTextVHDialog) {
+    this._oHeaderTextVHDialog = new TableSelectDialog({
+      title: "Select Alternative BOM Text",
+      noDataText: "No Style Group found",
+      growing: true,
+      growingThreshold: 20,
+
+      columns: [
+        new Column({
+          header: new Text({
+            text: "Sr No"
+          })
+        }),
+        new Column({
+          header: new Text({
+            text: "Style Group"
+          })
+        })
+      ],
+
+      search: function (oEvent) {
+        var sValue = String(oEvent.getParameter("value") || "");
+        var oBinding = oEvent.getSource().getBinding("items");
+        var aFilters = [];
+
+        if (sValue) {
+          aFilters.push(
+            new Filter({
+              filters: [
+                new Filter("StyleGroup", FilterOperator.Contains, sValue),
+                new Filter("SrNo", FilterOperator.Contains, sValue)
+              ],
+              and: false
+            })
+          );
+        }
+
+        if (oBinding) {
+          oBinding.filter(aFilters);
+        }
+      },
+
+      confirm: function (oEvent) {
+        var oSelectedItem = oEvent.getParameter("selectedItem");
+        var oContext;
+        var oData;
+        var sStyleGroup;
+        var oHeaderModel;
+
+        if (!oSelectedItem) {
+          return;
+        }
+
+        oContext = oSelectedItem.getBindingContext();
+
+        if (!oContext) {
+          return;
+        }
+
+        oData = oContext.getObject();
+        sStyleGroup = String(oData.StyleGroup || "").trim();
+
+        oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+
+        if (!oHeaderModel) {
+          return;
+        }
+
+        oHeaderModel.setProperty("/HeaderText", sStyleGroup);
+
+        HeaderModel.clearValidation(oHeaderModel);
+        this._syncHeaderToRoute();
+      }.bind(this)
+    });
+
+    this._oHeaderTextVHDialog.setModel(this.getOwnerComponent().getModel());
+
+    this._oHeaderTextVHDialog.bindAggregation("items", {
+      path: "/style_group_vh",
+      template: new ColumnListItem({
+        type: "Active",
+        cells: [
+          new Text({
+            text: "{SrNo}"
+          }),
+          new Text({
+            text: "{StyleGroup}"
+          })
+        ]
+      })
+    });
+
+    oView.addDependent(this._oHeaderTextVHDialog);
+  }
+
+  this._oHeaderTextVHDialog.open();
+},
 
       _resolveMaterialFromValueHelp: function (sMaterial) {
         var sNormalizedMaterial = FormatterHelper.normalizeMaterialInput(
@@ -1264,10 +1450,10 @@ sap.ui.define(
       _getMaterialDescription: function (oItem) {
         return String(
           oItem.ProductDescription ||
-            oItem.ProductName ||
-            oItem.MaterialDescription ||
-            oItem.Description ||
-            ""
+          oItem.ProductName ||
+          oItem.MaterialDescription ||
+          oItem.Description ||
+          ""
         );
       },
 

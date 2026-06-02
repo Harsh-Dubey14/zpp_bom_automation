@@ -13,66 +13,99 @@
         navButtonPress=".onNavBack"
     >
         <content>
-            <VBox class="sapUiResponsiveContentPadding">
+            <VBox class="bomPageContent">
                 <MessageStrip
                     text="{resultModel>/Message}"
                     type="{resultModel>/MessageType}"
                     showIcon="true"
                     visible="{resultModel>/ShowMessage}"
-                    class="sapUiSmallMarginBottom"
+                    class="sapUiSmallMarginBottom sapUiSmallMarginBegin sapUiSmallMarginEnd"
                 />
 
-                <f:SimpleForm
-                    id="headerForm"
-                    title="BOM Header Information"
-                    editable="false"
-                    layout="ResponsiveGridLayout"
-                    labelSpanXL="3"
-                    labelSpanL="3"
-                    labelSpanM="4"
-                    labelSpanS="12"
-                    columnsXL="2"
-                    columnsL="2"
-                    columnsM="1"
-                >
-                    <f:content>
-                        <Label text="Material" />
-                        <Text text="{headerModel>/Material}" />
+             <Panel
+    id="headerForm"
+    headerText="BOM Header Information"
+    width="100%"
+    class="bomHeaderPanel sapUiSmallMarginBottom"
+>
+    <HBox
+        class="bomHeaderWrapper"
+        justifyContent="Center"
+        alignItems="Start"
+        width="100%"
+    >
+        <!-- LEFT COLUMN -->
+        <VBox class="bomHeaderColumn sapUiLargeMarginEnd">
+            <VBox class="bomFieldBox">
+                <Label text="Material" />
+                <Text text="{headerModel>/Material}" />
+            </VBox>
 
-                        <Label text="Plant" />
-                        <Text text="{headerModel>/Plant}" />
+            <VBox class="bomFieldBox">
+                <Label text="Plant" />
+                <Text text="{headerModel>/Plant}" />
+            </VBox>
 
-                        <Label text="BOM Usage" />
-                        <Text text="{headerModel>/BomUsage}" />
+            <VBox class="bomFieldBox">
+                <Label text="BOM Usage" />
+                <Text text="{headerModel>/BomUsage}" />
+            </VBox>
 
-                        <Label text="Alternative BOM" />
-                        <Text text="{headerModel>/AltBom}" />
+            <VBox class="bomFieldBox">
+                <Label text="Alternative BOM" />
+                <Text text="{headerModel>/AltBom}" />
+            </VBox>
 
-                        <Label text="Base Quantity" />
-                        <Text text="{headerModel>/BaseQty}" />
+            <VBox class="bomFieldBox">
+                <Label text="Request Status" />
+                <ObjectStatus
+                    text="{resultModel>/Status}"
+                    state="{resultModel>/StatusState}"
+                />
+            </VBox>
 
-                        <Label text="Valid From" />
-                        <Text text="{headerModel>/ValidFrom}" />
+            <VBox class="bomFieldBox">
+                <Label text="BOM Request ID" />
+                <Text text="{resultModel>/BomId}" />
+            </VBox>
+        </VBox>
 
-                        <Label text="Base UOM" />
-                        <Text text="{headerModel>/BaseUom}" />
+        <!-- RIGHT COLUMN -->
+        <VBox class="bomHeaderColumn sapUiLargeMarginBegin">
+            <VBox class="bomFieldBox">
+                <Label text="Base Quantity" />
+                <Text text="{headerModel>/BaseQty}" />
+            </VBox>
 
-                        <Label text="Request Status" />
-                        <ObjectStatus
-                            text="{resultModel>/Status}"
-                            state="{resultModel>/StatusState}"
-                        />
+            <VBox class="bomFieldBox">
+                <Label text="Valid From" />
+                <Text text="{headerModel>/ValidFrom}" />
+            </VBox>
 
-                        <Label text="BOM Request ID" />
-                        <Text text="{resultModel>/BomId}" />
+            <VBox class="bomFieldBox">
+                <Label text="Base UOM" />
+                <Text text="{headerModel>/BaseUom}" />
+            </VBox>
 
-                        <Label text="Created BOM" />
-                        <ObjectIdentifier
-                            title="{resultModel>/BillOfMaterial}"
-                            text="{resultModel>/CreatedBomVariant}"
-                        />
-                    </f:content>
-                </f:SimpleForm>
+            <VBox class="bomFieldBox">
+                <Label text="Alternative BOM Text" />
+                <Text
+                    text="{headerModel>/HeaderText}"
+                    wrapping="true"
+                    width="20rem"
+                />
+            </VBox>
+
+            <VBox class="bomFieldBox">
+                <Label text="Created BOM" />
+                <ObjectIdentifier
+                    title="{resultModel>/BillOfMaterial}"
+                    text="{resultModel>/CreatedBomVariant}"
+                />
+            </VBox>
+        </VBox>
+    </HBox>
+</Panel>
 
                 <Table
                     id="bomItemsTable"
@@ -210,18 +243,12 @@
                                 />
 
                                 <Input
-    value="{itemModel>uom}"
-    width="5rem"
-    editable="{resultModel>/Editable}"
-    placeholder="UoM"
-    change=".onUomChange"
-/>
-
-                                <!-- <Input
-                                    value="{itemModel>sortString}"
+                                    value="{itemModel>uom}"
+                                    width="5rem"
                                     editable="{resultModel>/Editable}"
-                                    placeholder="Sort String"
-                                /> -->
+                                    placeholder="UoM"
+                                    change=".onUomChange"
+                                />
 
                                 <Input
                                     value="{itemModel>sortString}"
@@ -247,30 +274,30 @@
             </VBox>
         </content>
 
-       <footer>
-    <OverflowToolbar>
-        <ToolbarSpacer />
+        <footer>
+            <OverflowToolbar>
+                <ToolbarSpacer />
 
-        <Button
-            text="{= ${headerModel>/IsChangeMode} ? 'Post Changes' : 'Create BOM' }"
-            type="Emphasized"
-            icon="{= ${headerModel>/IsChangeMode} ? 'sap-icon://upload-to-cloud' : 'sap-icon://save' }"
-            press=".onSave"
-            enabled="{resultModel>/CanSave}"
-        />
+                <Button
+                    text="{= ${headerModel>/IsChangeMode} ? 'Post Changes' : 'Create BOM' }"
+                    type="Emphasized"
+                    icon="{= ${headerModel>/IsChangeMode} ? 'sap-icon://upload-to-cloud' : 'sap-icon://save' }"
+                    press=".onSave"
+                    enabled="{resultModel>/CanSave}"
+                />
 
-        <Button
-            text="{= ${headerModel>/IsChangeMode} ? 'New Change' : 'New BOM' }"
-            icon="sap-icon://add-document"
-            press=".onNewBOM"
-            visible="{= !${headerModel>/IsChangeMode} }"
-        />
+                <Button
+                    text="{= ${headerModel>/IsChangeMode} ? 'New Change' : 'New BOM' }"
+                    icon="sap-icon://add-document"
+                    press=".onNewBOM"
+                    visible="{= !${headerModel>/IsChangeMode} }"
+                />
 
-        <Button
-            text="Cancel"
-            press=".onCancel"
-        />
-    </OverflowToolbar>
-</footer>
+                <Button
+                    text="Cancel"
+                    press=".onCancel"
+                />
+            </OverflowToolbar>
+        </footer>
     </Page>
 </mvc:View>

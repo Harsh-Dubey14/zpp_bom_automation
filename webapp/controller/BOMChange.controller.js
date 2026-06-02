@@ -1098,10 +1098,6 @@ _toUpperTrim: function (sValue) {
 _looksLikeMaterialCode: function (sValue) {
   sValue = String(sValue || "").trim();
 
-  /*
-   * Product code normally has no spaces.
-   * Product description can have spaces.
-   */
   return !!sValue && sValue.indexOf(" ") === -1;
 },
 

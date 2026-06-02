@@ -57,165 +57,202 @@
         </customHeader>
 
         <content>
-            <VBox class="sapUiResponsiveContentPadding">
+            <VBox class="bomPageContent">
                 <MessageStrip
                     id="msgStrip"
                     text="{headerModel>/Message}"
                     type="{headerModel>/MessageType}"
                     showIcon="true"
                     visible="{headerModel>/ShowMessage}"
-                    class="sapUiSmallMarginBottom"
+                    class="sapUiSmallMarginBottom sapUiSmallMarginBegin sapUiSmallMarginEnd"
                 />
 
-                <f:SimpleForm
+                <Panel
                     id="inputForm"
-                    title="Input Screen"
-                    editable="true"
-                    layout="ResponsiveGridLayout"
-                    labelSpanXL="3"
-                    labelSpanL="3"
-                    labelSpanM="4"
-                    labelSpanS="12"
-                    adjustLabelSpan="false"
-                    emptySpanXL="6"
-                    emptySpanL="5"
-                    emptySpanM="2"
-                    emptySpanS="0"
-                    columnsXL="1"
-                    columnsL="1"
-                    columnsM="1"
-                    singleContainerFullSize="false"
+                    headerText="Input Screen"
+                    width="100%"
+                    class="bomHeaderPanel sapUiSmallMarginBottom"
                 >
-                    <f:content>
-                        <Label
-                            text="Material"
-                            required="true"
-                        />
+                    <HBox
+                        class="bomHeaderWrapper"
+                        justifyContent="Center"
+                        alignItems="Start"
+                        width="100%"
+                    >
+                        <!-- LEFT COLUMN -->
+                        <VBox class="bomHeaderColumn sapUiLargeMarginEnd">
+                            <VBox class="bomFieldBox">
+                                <Label
+                                    text="Material"
+                                    required="true"
+                                />
 
-                        <Input
-                            id="inpMaterial"
-                            value="{headerModel>/Material}"
-                            showValueHelp="true"
-                            valueHelpRequest=".onMaterialValueHelp"
-                            showSuggestion="true"
-                            liveChange=".onMaterialLiveChange"
-                            suggestionItemSelected=".onMaterialSuggestionSelected"
-                            suggestionRows="{materialSuggestModel>/items}"
-                            maxLength="40"
-                            placeholder="Enter Material / Description"
-                        >
-                            <suggestionColumns>
-                                <Column>
-                                    <Label text="Product" />
-                                </Column>
-                                <Column>
-                                    <Label text="Description" />
-                                </Column>
-                            </suggestionColumns>
+                                <Input
+                                    id="inpMaterial"
+                                    value="{headerModel>/Material}"
+                                    showValueHelp="true"
+                                    valueHelpRequest=".onMaterialValueHelp"
+                                    showSuggestion="true"
+                                    liveChange=".onMaterialLiveChange"
+                                    suggestionItemSelected=".onMaterialSuggestionSelected"
+                                    suggestionRows="{materialSuggestModel>/items}"
+                                    maxLength="40"
+                                    width="20rem"
+                                    placeholder="Enter Material / Description"
+                                >
+                                    <suggestionColumns>
+                                        <Column>
+                                            <Label text="Product" />
+                                        </Column>
+                                        <Column>
+                                            <Label text="Description" />
+                                        </Column>
+                                    </suggestionColumns>
 
-                            <suggestionRows>
-                                <ColumnListItem>
-                                    <cells>
-                                        <Text text="{materialSuggestModel>Product}" />
-                                        <Text text="{materialSuggestModel>ProductDescription}" />
-                                    </cells>
-                                </ColumnListItem>
-                            </suggestionRows>
-                        </Input>
+                                    <suggestionRows>
+                                        <ColumnListItem>
+                                            <cells>
+                                                <Text text="{materialSuggestModel>Product}" />
+                                                <Text text="{materialSuggestModel>ProductDescription}" />
+                                            </cells>
+                                        </ColumnListItem>
+                                    </suggestionRows>
+                                </Input>
+                            </VBox>
 
-                        <Label
-                            text="Plant"
-                            required="true"
-                        />
+                            <VBox class="bomFieldBox">
+                                <Label
+                                    text="Plant"
+                                    required="true"
+                                />
 
-                        <Input
-                            id="inpPlant"
-                            value="{headerModel>/Plant}"
-                            showValueHelp="true"
-                            valueHelpRequest=".onPlantValueHelp"
-                            showSuggestion="true"
-                            liveChange=".onPlantLiveChange"
-                            suggestionItemSelected=".onPlantSuggestionSelected"
-                            suggestionRows="{plantSuggestModel>/items}"
-                            maxLength="4"
-                            placeholder="Enter Plant"
-                        >
-                            <suggestionColumns>
-                                <Column>
-                                    <Label text="Plant" />
-                                </Column>
-                                <Column>
-                                    <Label text="Name" />
-                                </Column>
-                            </suggestionColumns>
+                                <Input
+                                    id="inpPlant"
+                                    value="{headerModel>/Plant}"
+                                    showValueHelp="true"
+                                    valueHelpRequest=".onPlantValueHelp"
+                                    showSuggestion="true"
+                                    liveChange=".onPlantLiveChange"
+                                    suggestionItemSelected=".onPlantSuggestionSelected"
+                                    suggestionRows="{plantSuggestModel>/items}"
+                                    maxLength="4"
+                                    width="20rem"
+                                    placeholder="Enter Plant"
+                                >
+                                    <suggestionColumns>
+                                        <Column>
+                                            <Label text="Plant" />
+                                        </Column>
+                                        <Column>
+                                            <Label text="Name" />
+                                        </Column>
+                                    </suggestionColumns>
 
-                            <suggestionRows>
-                                <ColumnListItem>
-                                    <cells>
-                                        <Text text="{plantSuggestModel>Plant}" />
-                                        <Text text="{plantSuggestModel>PlantName}" />
-                                    </cells>
-                                </ColumnListItem>
-                            </suggestionRows>
-                        </Input>
+                                    <suggestionRows>
+                                        <ColumnListItem>
+                                            <cells>
+                                                <Text text="{plantSuggestModel>Plant}" />
+                                                <Text text="{plantSuggestModel>PlantName}" />
+                                            </cells>
+                                        </ColumnListItem>
+                                    </suggestionRows>
+                                </Input>
+                            </VBox>
 
-                        <Label
-                            text="BOM Usage"
-                            required="true"
-                        />
+                            <VBox class="bomFieldBox">
+                                <Label
+                                    text="BOM Usage"
+                                    required="true"
+                                />
 
-                        <Input
-                            value="{headerModel>/BomUsage}"
-                            editable="false"
-                            enabled="false"
-                        />
+                                <Input
+                                    id="inpBomUsage"
+                                    value="{headerModel>/BomUsage}"
+                                    enabled="false"
+                                    width="20rem"
+                                />
+                            </VBox>
 
-                        <Label
-                            text="Alternative BOM"
-                            required="true"
-                        />
+                            <VBox class="bomFieldBox">
+                                <Label
+                                    text="Alternative BOM"
+                                    required="true"
+                                />
 
-                        <Input
-                            id="inpAltBom"
-                            value="{headerModel>/AltBom}"
-                            editable="false"
-                            maxLength="2"
-                            placeholder="Auto-filled after validation"
-                        />
+                                <Input
+                                    id="inpAltBom"
+                                    value="{headerModel>/AltBom}"
+                                    enabled="false"
+                                    maxLength="2"
+                                    width="20rem"
+                                    placeholder="Auto-filled after validation"
+                                />
+                            </VBox>
+                        </VBox>
 
-                        <Label
-                            text="Base Quantity"
-                            required="true"
-                        />
+                        <!-- RIGHT COLUMN -->
+                        <VBox class="bomHeaderColumn sapUiLargeMarginBegin">
+                            <VBox class="bomFieldBox">
+                                <Label
+                                    text="Base Quantity"
+                                    required="true"
+                                />
 
-                        <Input
-                            id="inpBaseQty"
-                            value="{headerModel>/BaseQty}"
-                            type="Number"
-                            liveChange=".onHeaderFieldChange"
-                            placeholder="Enter Base Quantity"
-                        />
+                                <Input
+                                    id="inpBaseQty"
+                                    value="{headerModel>/BaseQty}"
+                                    type="Number"
+                                    liveChange=".onHeaderFieldChange"
+                                    width="20rem"
+                                    placeholder="Enter Base Quantity"
+                                />
+                            </VBox>
 
-                        <Label text="Valid From" />
+                            <VBox class="bomFieldBox">
+                                <Label text="Valid From" />
 
-                        <DatePicker
-                            id="dpValidFrom"
-                            value="{headerModel>/ValidFrom}"
-                            valueFormat="yyyy-MM-dd"
-                            displayFormat="dd/MM/yyyy"
-                            change=".onHeaderFieldChange"
-                        />
+                                <DatePicker
+                                    id="dpValidFrom"
+                                    value="{headerModel>/ValidFrom}"
+                                    valueFormat="yyyy-MM-dd"
+                                    displayFormat="dd/MM/yyyy"
+                                    change=".onHeaderFieldChange"
+                                    width="20rem"
+                                />
+                            </VBox>
 
-                        <Label text="Base UOM" />
+                            <VBox class="bomFieldBox">
+                                <Label text="Base UOM" />
 
-                        <Input
-                            id="inpBaseUom"
-                            value="{headerModel>/BaseUom}"
-                            editable="false"
-                            placeholder="Auto-filled after validation"
-                        />
-                    </f:content>
-                </f:SimpleForm>
+                                <Input
+                                    id="inpBaseUom"
+                                    value="{headerModel>/BaseUom}"
+                                    enabled="false"
+                                    width="20rem"
+                                    placeholder="Auto-filled after validation"
+                                />
+                            </VBox>
+
+                            <VBox class="bomFieldBox">
+                                <Label text="Alternative BOM Text" />
+
+                             <Select
+    id="selHeaderText"
+    selectedKey="{headerModel>/HeaderText}"
+    change=".onHeaderFieldChange"
+    width="20rem"
+    forceSelection="true"
+    items="{styleGroupModel>/items}"
+>
+    <core:Item
+        key="{styleGroupModel>StyleGroup}"
+        text="{styleGroupModel>Text}"
+    />
+</Select>
+                            </VBox>
+                        </VBox>
+                    </HBox>
+                </Panel>
 
                 <f:SimpleForm
                     id="copyFromForm"
@@ -235,6 +272,7 @@
                     columnsL="1"
                     columnsM="1"
                     singleContainerFullSize="false"
+                    class="bomCopyFromForm"
                 >
                     <f:content>
                         <Label text="Material" />

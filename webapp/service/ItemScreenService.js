@@ -376,26 +376,27 @@ sap.ui.define(
       },
 
       buildBomCreatePayload: function (oHeader, aItems) {
-        return {
-          Material: oHeader.Material,
-          Plant: oHeader.Plant,
-          BomUsage: oHeader.BomUsage || Constants.BOM_USAGE,
-          AltBom: oHeader.AltBom,
-          BaseQty: Number(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY),
-          ValidFrom: oHeader.ValidFrom,
-          BomStatus: oHeader.BomStatus || Constants.BOM_STATUS,
-          _Item: aItems.map(function (oItem, iIndex) {
-            return {
-              ItemNo: FormatterHelper.formatItemNumber(oItem.item || iIndex + 1),
-              ItemCategory: oItem.category || Constants.ITEM_CATEGORY,
-              Component: oItem.component,
-              Quantity: Number(oItem.quantity),
-              Uom: oItem.uom,
-              SortString: oItem.sortString || ""
-            };
-          })
-        };
-      },
+  return {
+    Material: oHeader.Material,
+    Plant: oHeader.Plant,
+    BomUsage: oHeader.BomUsage || Constants.BOM_USAGE,
+    AltBom: oHeader.AltBom,
+    BaseQty: Number(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY),
+    ValidFrom: oHeader.ValidFrom,
+    BomStatus: oHeader.BomStatus || Constants.BOM_STATUS,
+    HeaderText: oHeader.HeaderText || "",
+    _Item: aItems.map(function (oItem, iIndex) {
+      return {
+        ItemNo: FormatterHelper.formatItemNumber(oItem.item || iIndex + 1),
+        ItemCategory: oItem.category || Constants.ITEM_CATEGORY,
+        Component: oItem.component,
+        Quantity: Number(oItem.quantity),
+        Uom: oItem.uom,
+        SortString: oItem.sortString || ""
+      };
+    })
+  };
+},
 
       extractBillOfMaterial: function (sApiResponse) {
         if (!sApiResponse) {

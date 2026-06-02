@@ -79,33 +79,30 @@ sap.ui.define(
       },
 
       onNavBack: function () {
-        var oResultModel = this.getView().getModel("resultModel");
-        var sStatus = oResultModel ? oResultModel.getProperty("/Status") : "";
+  var that = this;
 
-        if (sStatus === "SUCCESS") {
-          this._clearBomDraftData();
+  MessageBox.warning(
+    "Are you sure you want to go back? All item data will be lost.",
+    {
+      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+      emphasizedAction: MessageBox.Action.OK,
 
-          this.getOwnerComponent().getRouter().navTo(
+      onClose: function (sAction) {
+        if (sAction === MessageBox.Action.OK) {
+          that._clearBomDraftData();
+
+          that.getOwnerComponent().getRouter().navTo(
             Constants.ROUTES.HEADER,
             {
               "?query": {}
             },
             true
           );
-
-          return;
         }
-
-        var sPreviousHash = History.getInstance().getPreviousHash();
-
-        if (sPreviousHash !== undefined) {
-          window.history.go(-1);
-        } else {
-          this.getOwnerComponent()
-            .getRouter()
-            .navTo(Constants.ROUTES.HEADER, {}, true);
-        }
-      },
+      }
+    }
+  );
+},
 
       onAddRow: function () {
         var oItemModel = ItemModel.init(

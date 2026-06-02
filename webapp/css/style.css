@@ -1,1 +1,61 @@
-/* Enter your custom styles here */
+.bomPageContent {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+.bomHeaderPanel {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+}
+
+.bomHeaderPanel .sapMPanelContent {
+    display: flex;
+    justify-content: center;
+    padding-top: 1rem;
+    padding-bottom: 1.2rem;
+}
+
+.bomHeaderWrapper {
+    width: 100%;
+    max-width: 78rem;
+}
+
+.bomHeaderColumn {
+    width: 24rem;
+}
+
+.bomFieldBox {
+    margin-bottom: 0.85rem;
+}
+
+.bomFieldBox .sapMLabel {
+    margin-bottom: 0.2rem;
+}
+
+.bomCopyFromForm {
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+    .bomHeaderWrapper {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .bomHeaderColumn {
+        width: 100%;
+        max-width: 22rem;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .bomFieldBox .sapMInputBase,
+    .bomFieldBox .sapMTextArea,
+    .bomFieldBox .sapMDatePicker {
+        width: 100% !important;
+    }
+}
