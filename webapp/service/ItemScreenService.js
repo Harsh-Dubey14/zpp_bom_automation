@@ -188,102 +188,102 @@ sap.ui.define(
         });
       },
 
-    loadSortStringVHData: function (oController, sComponent) {
-  sComponent = String(sComponent || "").trim();
+      loadSortStringVHData: function (oController, sComponent) {
+        sComponent = String(sComponent || "").trim();
 
-  if (!sComponent) {
-    return Promise.resolve(
-      new JSONModel({
-        items: []
-      })
-    );
-  }
+        if (!sComponent) {
+          return Promise.resolve(
+            new JSONModel({
+              items: []
+            })
+          );
+        }
 
-  if (
-    oController._oSortStringVHModel &&
-    oController._sSortStringVHMaterial === sComponent
-  ) {
-    return Promise.resolve(oController._oSortStringVHModel);
-  }
+        if (
+          oController._oSortStringVHModel &&
+          oController._sSortStringVHMaterial === sComponent
+        ) {
+          return Promise.resolve(oController._oSortStringVHModel);
+        }
 
-  return new Promise(function (resolve, reject) {
-    var oODataModel = oController.getOwnerComponent().getModel();
+        return new Promise(function (resolve, reject) {
+          var oODataModel = oController.getOwnerComponent().getModel();
 
-    /*
-     * Important:
-     * We are passing row component from BOMChangeItem.controller.js.
-     * Backend sort string VH field is Product, so component is used against Product.
-     */
-    var oListBinding = oODataModel.bindList(
-      Constants.VALUE_HELP.SORT_STRING_PATH,
-      undefined,
-      undefined,
-      [new Filter("Product", FilterOperator.EQ, sComponent)],
-      {
-        $select: Constants.VALUE_HELP.SORT_STRING_SELECT.join(",")
-      }
-    );
+          /*
+           * Important:
+           * We are passing row component from BOMChangeItem.controller.js.
+           * Backend sort string VH field is Product, so component is used against Product.
+           */
+          var oListBinding = oODataModel.bindList(
+            Constants.VALUE_HELP.SORT_STRING_PATH,
+            undefined,
+            undefined,
+            [new Filter("Product", FilterOperator.EQ, sComponent)],
+            {
+              $select: Constants.VALUE_HELP.SORT_STRING_SELECT.join(",")
+            }
+          );
 
-    oListBinding
-      .requestContexts(0, 5000)
-      .then(function (aContexts) {
-        var aResults = aContexts.map(function (oContext) {
-          var oData = oContext.getObject();
+          oListBinding
+            .requestContexts(0, 5000)
+            .then(function (aContexts) {
+              var aResults = aContexts.map(function (oContext) {
+                var oData = oContext.getObject();
 
-          return {
-            Product:
-              oData.Product ||
-              oData.product ||
-              sComponent,
+                return {
+                  Product:
+                    oData.Product ||
+                    oData.product ||
+                    sComponent,
 
-            Style:
-              oData.Style ||
-              oData.style ||
-              "",
+                  Style:
+                    oData.Style ||
+                    oData.style ||
+                    "",
 
-            Zcomb:
-              oData.Zcomb ||
-              oData.zcomb ||
-              oData.sortString ||
-              oData.SortString ||
-              oData.BOMItemSorter ||
-              oData.BomItemSorter ||
-              "",
+                  Zcomb:
+                    oData.Zcomb ||
+                    oData.zcomb ||
+                    oData.sortString ||
+                    oData.SortString ||
+                    oData.BOMItemSorter ||
+                    oData.BomItemSorter ||
+                    "",
 
-            sortString:
-              oData.Zcomb ||
-              oData.zcomb ||
-              oData.sortString ||
-              oData.SortString ||
-              oData.BOMItemSorter ||
-              oData.BomItemSorter ||
-              "",
+                  sortString:
+                    oData.Zcomb ||
+                    oData.zcomb ||
+                    oData.sortString ||
+                    oData.SortString ||
+                    oData.BOMItemSorter ||
+                    oData.BomItemSorter ||
+                    "",
 
-            ColorName:
-              oData.ColorName ||
-              oData.colorName ||
-              "",
+                  ColorName:
+                    oData.ColorName ||
+                    oData.colorName ||
+                    "",
 
-            sizes:
-              oData.sizes ||
-              oData.Sizes ||
-              oData.Size ||
-              ""
-          };
+                  sizes:
+                    oData.sizes ||
+                    oData.Sizes ||
+                    oData.Size ||
+                    ""
+                };
+              });
+
+              oController._sSortStringVHMaterial = sComponent;
+              oController._oSortStringVHModel = new JSONModel({
+                items: aResults
+              });
+
+              resolve(oController._oSortStringVHModel);
+            })
+            .catch(function (oError) {
+              reject(oError);
+            });
         });
-
-        oController._sSortStringVHMaterial = sComponent;
-        oController._oSortStringVHModel = new JSONModel({
-          items: aResults
-        });
-
-        resolve(oController._oSortStringVHModel);
-      })
-      .catch(function (oError) {
-        reject(oError);
-      });
-  });
-},
+      },
       validateBeforeSave: function (oHeader, aItems) {
         if (!oHeader) {
           return {
@@ -328,6 +328,12 @@ sap.ui.define(
           };
         }
 
+        if (!oHeader.BaseUom) {
+  return {
+    valid: false,
+    message: "Base UOM is required."
+  };
+}
         if (!oHeader.ValidFrom) {
           return {
             valid: false,
@@ -359,6 +365,12 @@ sap.ui.define(
               message: sPrefix + "Quantity must be greater than zero."
             };
           }
+          if (!oItem.uom) {
+  return {
+    valid: false,
+    message: sPrefix + "UOM is required."
+  };
+}
 
           if (!this.isValidQuantityDecimal(oItem.quantity)) {
             return {
@@ -375,29 +387,36 @@ sap.ui.define(
         };
       },
 
-      buildBomCreatePayload: function (oHeader, aItems) {
+    buildBomCreatePayload: function (oHeader, aItems) {
   return {
     Material: oHeader.Material,
     Plant: oHeader.Plant,
     BomUsage: oHeader.BomUsage || Constants.BOM_USAGE,
     AltBom: oHeader.AltBom,
     BaseQty: Number(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY),
+
+    // Added because backend now takes Base UOM from payload
+    BaseUom: oHeader.BaseUom || oHeader.BaseUnit || oHeader.baseUom || "",
+
     ValidFrom: oHeader.ValidFrom,
     BomStatus: oHeader.BomStatus || Constants.BOM_STATUS,
     HeaderText: oHeader.HeaderText || "",
+
     _Item: aItems.map(function (oItem, iIndex) {
       return {
         ItemNo: FormatterHelper.formatItemNumber(oItem.item || iIndex + 1),
         ItemCategory: oItem.category || Constants.ITEM_CATEGORY,
         Component: oItem.component,
         Quantity: Number(oItem.quantity),
-        Uom: oItem.uom,
+
+        // Item UOM already comes from row payload
+        Uom: oItem.uom || "",
+
         SortString: oItem.sortString || ""
       };
     })
   };
 },
-
       extractBillOfMaterial: function (sApiResponse) {
         if (!sApiResponse) {
           return "";

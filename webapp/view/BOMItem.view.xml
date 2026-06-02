@@ -22,90 +22,90 @@
                     class="sapUiSmallMarginBottom sapUiSmallMarginBegin sapUiSmallMarginEnd"
                 />
 
-             <Panel
-    id="headerForm"
-    headerText="BOM Header Information"
-    width="100%"
-    class="bomHeaderPanel sapUiSmallMarginBottom"
->
-    <HBox
-        class="bomHeaderWrapper"
-        justifyContent="Center"
-        alignItems="Start"
-        width="100%"
-    >
-        <!-- LEFT COLUMN -->
-        <VBox class="bomHeaderColumn sapUiLargeMarginEnd">
-            <VBox class="bomFieldBox">
-                <Label text="Material" />
-                <Text text="{headerModel>/Material}" />
-            </VBox>
+                <Panel
+                    id="headerForm"
+                    headerText="BOM Header Information"
+                    width="100%"
+                    class="bomHeaderPanel sapUiSmallMarginBottom"
+                >
+                    <HBox
+                        class="bomHeaderWrapper"
+                        justifyContent="Center"
+                        alignItems="Start"
+                        width="100%"
+                    >
+                        <!-- LEFT COLUMN -->
+                        <VBox class="bomHeaderColumn sapUiLargeMarginEnd">
+                            <VBox class="bomFieldBox">
+                                <Label text="Material" />
+                                <Text text="{headerModel>/Material}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Plant" />
-                <Text text="{headerModel>/Plant}" />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="Plant" />
+                                <Text text="{headerModel>/Plant}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="BOM Usage" />
-                <Text text="{headerModel>/BomUsage}" />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="BOM Usage" />
+                                <Text text="{headerModel>/BomUsage}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Alternative BOM" />
-                <Text text="{headerModel>/AltBom}" />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="Alternative BOM" />
+                                <Text text="{headerModel>/AltBom}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Request Status" />
-                <ObjectStatus
-                    text="{resultModel>/Status}"
-                    state="{resultModel>/StatusState}"
-                />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="Request Status" />
+                                <ObjectStatus
+                                    text="{resultModel>/Status}"
+                                    state="{resultModel>/StatusState}"
+                                />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="BOM Request ID" />
-                <Text text="{resultModel>/BomId}" />
-            </VBox>
-        </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="BOM Request ID" />
+                                <Text text="{resultModel>/BomId}" />
+                            </VBox>
+                        </VBox>
 
-        <!-- RIGHT COLUMN -->
-        <VBox class="bomHeaderColumn sapUiLargeMarginBegin">
-            <VBox class="bomFieldBox">
-                <Label text="Base Quantity" />
-                <Text text="{headerModel>/BaseQty}" />
-            </VBox>
+                        <!-- RIGHT COLUMN -->
+                        <VBox class="bomHeaderColumn sapUiLargeMarginBegin">
+                            <VBox class="bomFieldBox">
+                                <Label text="Base Quantity" />
+                                <Text text="{headerModel>/BaseQty}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Valid From" />
-                <Text text="{headerModel>/ValidFrom}" />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="Valid From" />
+                                <Text text="{headerModel>/ValidFrom}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Base UOM" />
-                <Text text="{headerModel>/BaseUom}" />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="Base UOM" />
+                                <Text text="{headerModel>/BaseUom}" />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Alternative BOM Text" />
-                <Text
-                    text="{headerModel>/HeaderText}"
-                    wrapping="true"
-                    width="20rem"
-                />
-            </VBox>
+                            <VBox class="bomFieldBox">
+                                <Label text="Alternative BOM Text" />
+                                <Text
+                                    text="{headerModel>/HeaderText}"
+                                    wrapping="true"
+                                    width="20rem"
+                                />
+                            </VBox>
 
-            <VBox class="bomFieldBox">
-                <Label text="Created BOM" />
-                <ObjectIdentifier
-                    title="{resultModel>/BillOfMaterial}"
-                    text="{resultModel>/CreatedBomVariant}"
-                />
-            </VBox>
-        </VBox>
-    </HBox>
-</Panel>
+                            <VBox class="bomFieldBox">
+                                <Label text="Created BOM" />
+                                <ObjectIdentifier
+                                    title="{resultModel>/BillOfMaterial}"
+                                    text="{resultModel>/CreatedBomVariant}"
+                                />
+                            </VBox>
+                        </VBox>
+                    </HBox>
+                </Panel>
 
                 <Table
                     id="bomItemsTable"
@@ -241,13 +241,14 @@
                                     editable="{resultModel>/Editable}"
                                     placeholder="Enter Quantity"
                                 />
-
                                 <Input
                                     value="{itemModel>uom}"
                                     width="5rem"
                                     editable="{resultModel>/Editable}"
+                                    showValueHelp="true"
+                                    valueHelpRequest=".onUomValueHelp"
                                     placeholder="UoM"
-                                    change=".onUomChange"
+                                    liveChange=".onUomManualInputBlock"
                                 />
 
                                 <Input

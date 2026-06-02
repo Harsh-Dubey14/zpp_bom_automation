@@ -7,6 +7,13 @@ sap.ui.define(
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/core/BusyIndicator",
+    "sap/m/TableSelectDialog",
+    "sap/m/ColumnListItem",
+    "sap/m/Column",
+    "sap/m/Text",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
+    "sap/ui/model/json/JSONModel",
     "zppbomautomation/config/Constants",
     "zppbomautomation/model/HeaderModel",
     "zppbomautomation/model/ItemModel",
@@ -22,6 +29,13 @@ sap.ui.define(
     MessageToast,
     MessageBox,
     BusyIndicator,
+    TableSelectDialog,
+    ColumnListItem,
+    Column,
+    Text,
+    Filter,
+    FilterOperator,
+    JSONModel,
     Constants,
     HeaderModel,
     ItemModel,
@@ -42,6 +56,8 @@ sap.ui.define(
         this._oSortStringVHModel = null;
         this._oCurrentComponentContext = null;
         this._oCurrentSortStringContext = null;
+        this._oCurrentUomContext = null;
+        this._oUomVHDialog = null;
 
         this.getOwnerComponent()
           .getRouter()
@@ -79,30 +95,30 @@ sap.ui.define(
       },
 
       onNavBack: function () {
-  var that = this;
+        var that = this;
 
-  MessageBox.warning(
-    "Are you sure you want to go back? All item data will be lost.",
-    {
-      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-      emphasizedAction: MessageBox.Action.OK,
+        MessageBox.warning(
+          "Are you sure you want to go back? All item data will be lost.",
+          {
+            actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+            emphasizedAction: MessageBox.Action.OK,
 
-      onClose: function (sAction) {
-        if (sAction === MessageBox.Action.OK) {
-          that._clearBomDraftData();
+            onClose: function (sAction) {
+              if (sAction === MessageBox.Action.OK) {
+                that._clearBomDraftData();
 
-          that.getOwnerComponent().getRouter().navTo(
-            Constants.ROUTES.HEADER,
-            {
-              "?query": {}
-            },
-            true
-          );
-        }
-      }
-    }
-  );
-},
+                that.getOwnerComponent().getRouter().navTo(
+                  Constants.ROUTES.HEADER,
+                  {
+                    "?query": {}
+                  },
+                  true
+                );
+              }
+            }
+          }
+        );
+      },
 
       onAddRow: function () {
         var oItemModel = ItemModel.init(
@@ -255,7 +271,11 @@ sap.ui.define(
           );
 
           oItem.description = oCheckResult.description || "";
-          oItem.uom = oCheckResult.uom || "";
+
+          if (!oItem.uom) {
+            oItem.uom = oCheckResult.uom || "";
+          }
+
           oItem.sortString = sExistingSortString;
         }
 
@@ -316,7 +336,7 @@ sap.ui.define(
 
         MessageBox.warning(
           oResponse.Message ||
-            "BOM request saved, but final status is not SUCCESS."
+          "BOM request saved, but final status is not SUCCESS."
         );
       },
 
@@ -409,10 +429,10 @@ sap.ui.define(
         if (!bValid) {
           MessageBox.warning(
             "Component " +
-              sComponent +
-              " is not available in Plant " +
-              sPlant +
-              "."
+            sComponent +
+            " is not available in Plant " +
+            sPlant +
+            "."
           );
         }
       },
@@ -478,14 +498,14 @@ sap.ui.define(
 
         return String(
           oItem.sortString ||
-            oItem.SortString ||
-            oItem.BOMItemSorter ||
-            oItem.BomItemSorter ||
-            oItem.bomItemSorter ||
-            oItem.Zcomb ||
-            oItem.ZCOMB ||
-            oItem.zcomb ||
-            ""
+          oItem.SortString ||
+          oItem.BOMItemSorter ||
+          oItem.BomItemSorter ||
+          oItem.bomItemSorter ||
+          oItem.Zcomb ||
+          oItem.ZCOMB ||
+          oItem.zcomb ||
+          ""
         )
           .trim()
           .toUpperCase();
@@ -583,55 +603,289 @@ sap.ui.define(
         }
       },
 
-      _openSortStringValueHelp: function () {
-  var that = this;
-  var oContext = this._oCurrentSortStringContext;
 
-  if (!oContext) {
-    MessageBox.error("Could not determine selected item row.");
-    return;
-  }
+      onUomManualInputBlock: function (oEvent) {
+        var oInput = oEvent.getSource();
+        var oContext = oInput.getBindingContext("itemModel");
+        var sCurrentUom = "";
 
-  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-  var sHeaderMaterial = oHeaderModel
-    ? oHeaderModel.getProperty("/Material")
-    : "";
-
-  sHeaderMaterial = this._toBackendMaterial(sHeaderMaterial);
-
-  if (!sHeaderMaterial) {
-    MessageBox.warning("Please enter/select header material first.");
-    return;
-  }
-
-  BusyIndicator.show(0);
-
-  ItemScreenService.loadSortStringVHData(this, sHeaderMaterial)
-    .then(function (oLocalModel) {
-      var aItems = oLocalModel.getProperty("/items") || [];
-
-      if (!aItems.length) {
-        MessageBox.warning(
-          "No sort string found for header material " + sHeaderMaterial + "."
-        );
-        return;
-      }
-
-      ItemValueHelpHelper.openSortStringValueHelp(
-        that,
-        oLocalModel,
-        function (aSelectedZcomb) {
-          that._applySortStringSelectionsToRow(aSelectedZcomb);
+        if (oContext) {
+          sCurrentUom = oContext.getProperty("uom") || "";
         }
-      );
-    })
-    .catch(function (oError) {
-      MessageBox.error(that._getErrorText(oError));
-    })
-    .finally(function () {
-      BusyIndicator.hide();
+
+        oInput.setValue(sCurrentUom);
+        MessageToast.show("Please select UoM from value help.");
+      },
+
+      onUomValueHelp: function (oEvent) {
+        var oInput = oEvent.getSource();
+
+        this._oCurrentUomContext = oInput.getBindingContext("itemModel");
+
+        if (!this._oCurrentUomContext) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
+
+        this._openUomValueHelp();
+      },
+
+      _openUomValueHelp: function () {
+        var oContext = this._oCurrentUomContext;
+        var oItem;
+        var sComponent;
+
+        if (!oContext) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
+
+        oItem = oContext.getObject();
+        sComponent = this._toBackendMaterial(oItem.component || "");
+
+        if (!sComponent) {
+          MessageBox.warning("Please select Component first.");
+          return;
+        }
+
+        BusyIndicator.show(0);
+
+        this._loadUomValueHelpData(sComponent)
+          .then(
+            function (oLocalModel) {
+              var aItems = oLocalModel.getProperty("/items") || [];
+
+              if (!aItems.length) {
+                MessageBox.warning("No UoM found for component " + sComponent + ".");
+                return;
+              }
+
+              this._openUomValueHelpDialog(oLocalModel);
+            }.bind(this)
+          )
+          .catch(
+            function (oError) {
+              MessageBox.error(this._getErrorText(oError));
+            }.bind(this)
+          )
+          .finally(function () {
+            BusyIndicator.hide();
+          });
+      },
+
+      _loadUomValueHelpData: function (sComponent) {
+        var oODataModel = this.getOwnerComponent().getModel();
+
+        return new Promise(function (resolve, reject) {
+          var oListBinding = oODataModel.bindList(
+            "/produtuom",
+            undefined,
+            undefined,
+            [
+              new Filter("Product", FilterOperator.EQ, sComponent)
+            ],
+            {
+              $select: "Product,AlternativeUnit,BaseUnit"
+            }
+          );
+
+          oListBinding
+            .requestContexts(0, 5000)
+            .then(function (aContexts) {
+              var aResults = aContexts.map(function (oContext) {
+                var oData = oContext.getObject();
+
+                return {
+                  Product: oData.Product || "",
+                  AlternativeUnit: oData.AlternativeUnit || "",
+                  BaseUnit: oData.BaseUnit || ""
+                };
+              });
+
+              resolve(
+                new JSONModel({
+                  items: aResults
+                })
+              );
+            })
+            .catch(function (oError) {
+              reject(oError);
+            });
+        });
+      },
+
+     _openUomValueHelpDialog: function (oLocalModel) {
+  if (!this._oUomVHDialog) {
+    this._oUomVHDialog = new TableSelectDialog({
+      title: "Select UoM",
+      noDataText: "No UoM found",
+      growing: true,
+      growingThreshold: 20,
+      multiSelect: false,
+
+      /*
+       * This controls only the popup size,
+       * not the UoM input field size.
+       */
+      contentWidth: "38rem",
+      contentHeight: "28rem",
+      stretch: false,
+
+      columns: [
+        new Column({
+          width: "12rem",
+          header: new Text({
+            text: "Product"
+          })
+        }),
+
+        new Column({
+          width: "12rem",
+          header: new Text({
+            text: "Alternative Unit"
+          })
+        }),
+
+        new Column({
+          width: "10rem",
+          header: new Text({
+            text: "Base Unit"
+          })
+        })
+      ],
+
+      search: function (oEvent) {
+        var sValue = String(oEvent.getParameter("value") || "");
+        var oBinding = oEvent.getSource().getBinding("items");
+        var aFilters = [];
+
+        if (sValue) {
+          aFilters.push(
+            new Filter({
+              filters: [
+                new Filter("Product", FilterOperator.Contains, sValue),
+                new Filter("AlternativeUnit", FilterOperator.Contains, sValue),
+                new Filter("BaseUnit", FilterOperator.Contains, sValue)
+              ],
+              and: false
+            })
+          );
+        }
+
+        if (oBinding) {
+          oBinding.filter(aFilters);
+        }
+      },
+
+      confirm: function (oEvent) {
+        var oSelectedItem = oEvent.getParameter("selectedItem");
+        var oContext;
+        var oData;
+        var sUom;
+
+        if (!oSelectedItem || !this._oCurrentUomContext) {
+          return;
+        }
+
+        oContext = oSelectedItem.getBindingContext("uomVHModel");
+
+        if (!oContext) {
+          return;
+        }
+
+        oData = oContext.getObject();
+
+        /*
+         * Pick AlternativeUnit only.
+         */
+        sUom = String(oData.AlternativeUnit || "").trim().toUpperCase();
+
+        if (!sUom) {
+          MessageBox.warning("Selected row does not contain Alternative Unit.");
+          return;
+        }
+
+        this._oCurrentUomContext
+          .getModel()
+          .setProperty(this._oCurrentUomContext.getPath() + "/uom", sUom);
+      }.bind(this)
     });
+
+    this._oUomVHDialog.bindAggregation("items", {
+      path: "uomVHModel>/items",
+      template: new ColumnListItem({
+        type: "Active",
+        cells: [
+          new Text({
+            text: "{uomVHModel>Product}"
+          }),
+
+          new Text({
+            text: "{uomVHModel>AlternativeUnit}"
+          }),
+
+          new Text({
+            text: "{uomVHModel>BaseUnit}"
+          })
+        ]
+      })
+    });
+
+    this.getView().addDependent(this._oUomVHDialog);
+  }
+
+  this._oUomVHDialog.setModel(oLocalModel, "uomVHModel");
+  this._oUomVHDialog.open();
 },
+      _openSortStringValueHelp: function () {
+        var that = this;
+        var oContext = this._oCurrentSortStringContext;
+
+        if (!oContext) {
+          MessageBox.error("Could not determine selected item row.");
+          return;
+        }
+
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sHeaderMaterial = oHeaderModel
+          ? oHeaderModel.getProperty("/Material")
+          : "";
+
+        sHeaderMaterial = this._toBackendMaterial(sHeaderMaterial);
+
+        if (!sHeaderMaterial) {
+          MessageBox.warning("Please enter/select header material first.");
+          return;
+        }
+
+        BusyIndicator.show(0);
+
+        ItemScreenService.loadSortStringVHData(this, sHeaderMaterial)
+          .then(function (oLocalModel) {
+            var aItems = oLocalModel.getProperty("/items") || [];
+
+            if (!aItems.length) {
+              MessageBox.warning(
+                "No sort string found for header material " + sHeaderMaterial + "."
+              );
+              return;
+            }
+
+            ItemValueHelpHelper.openSortStringValueHelp(
+              that,
+              oLocalModel,
+              function (aSelectedZcomb) {
+                that._applySortStringSelectionsToRow(aSelectedZcomb);
+              }
+            );
+          })
+          .catch(function (oError) {
+            MessageBox.error(that._getErrorText(oError));
+          })
+          .finally(function () {
+            BusyIndicator.hide();
+          });
+      },
 
       _applySortStringSelectionsToRow: function (aSelectedZcomb) {
         var oContext = this._oCurrentSortStringContext;
