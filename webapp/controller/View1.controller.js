@@ -1,3 +1,5 @@
+/* global Promise */
+/* eslint-disable max-params */
 sap.ui.define(
   [
     "sap/ui/core/mvc/Controller",
@@ -56,131 +58,97 @@ sap.ui.define(
           .attachPatternMatched(this._onRouteMatched, this);
       },
 
-      _onRouteMatched: function (oEvent) {
+      _replaceHeaderRouteWithoutQuery: function () {
+        this.getOwnerComponent().getRouter().navTo(
+          Constants.ROUTES.HEADER,
+          {},
+          true
+        );
+      },
+      _onRouteMatched: function () {
         var oHeaderModel = HeaderModel.init(
           this.getOwnerComponent(),
           this.getView()
         );
 
-        ItemModel.init(this.getOwnerComponent(), this.getView());
+        var oItemModel = ItemModel.init(
+          this.getOwnerComponent(),
+          this.getView()
+        );
 
-        var oArguments = oEvent.getParameter("arguments") || {};
-        var oQuery = oArguments["?query"];
-
-        if (oQuery && Object.keys(oQuery).length > 0) {
-          oHeaderModel.setData(
-            HeaderModel.createDataFromQuery(this._decodeRouteQuery(oQuery))
-          );
-
-          oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
-
-          if (oHeaderModel.getProperty("/Material")) {
-            oHeaderModel.setProperty(
-              "/Material",
-              this._toDisplayMaterial(oHeaderModel.getProperty("/Material"))
-            );
-
-            this._setBackendMaterialProperty(
-              "/Material",
-              oHeaderModel.getProperty("/Material")
-            );
-          }
-
-          if (oHeaderModel.getProperty("/CopyMaterial")) {
-            oHeaderModel.setProperty(
-              "/CopyMaterial",
-              this._toDisplayMaterial(
-                oHeaderModel.getProperty("/CopyMaterial")
-              )
-            );
-
-            this._setBackendMaterialProperty(
-              "/CopyMaterial",
-              oHeaderModel.getProperty("/CopyMaterial")
-            );
-          }
-
-          if (oHeaderModel.getProperty("/Plant")) {
-            oHeaderModel.setProperty(
-              "/Plant",
-              this._toUpperTrim(oHeaderModel.getProperty("/Plant"))
-            );
-          }
-
-          if (oHeaderModel.getProperty("/CopyPlant")) {
-            oHeaderModel.setProperty(
-              "/CopyPlant",
-              this._toUpperTrim(oHeaderModel.getProperty("/CopyPlant"))
-            );
-          }
-        } else {
-          this._resetHeaderAndItemDraftData(oHeaderModel);
-        }
+        /*
+         * Production rule:
+         * Header screen is a fresh create screen.
+         * Do not restore previous BOM from browser back/hash/query.
+         */
+        this._resetHeaderAndItemDraftData(oHeaderModel);
 
         this.getView().setModel(oHeaderModel, "headerModel");
-        this.getView().setModel(
-          this.getOwnerComponent().getModel("itemModel"),
-          "itemModel"
-        );
+        this.getView().setModel(oItemModel, "itemModel");
+
+        /*
+         * Remove old query/hash data if browser restored it.
+         */
+        this._replaceHeaderRouteWithoutQuery();
       },
 
       _loadStyleGroupDropdown: function () {
-  var oView = this.getView();
-  var oMainModel = this.getOwnerComponent().getModel();
+        var oView = this.getView();
+        var oMainModel = this.getOwnerComponent().getModel();
 
-  var oStyleGroupModel = new JSONModel({
-    items: [
-      {
-        SrNo: "",
-        StyleGroup: "",
-        Text: "-- Clear --"
-      }
-    ]
-  });
+        var oStyleGroupModel = new JSONModel({
+          items: [
+            {
+              SrNo: "",
+              StyleGroup: "",
+              Text: "-- Clear --"
+            }
+          ]
+        });
 
-  oView.setModel(oStyleGroupModel, "styleGroupModel");
+        oView.setModel(oStyleGroupModel, "styleGroupModel");
 
-  if (!oMainModel || !oMainModel.bindList) {
-    return;
-  }
-
-  var oBinding = oMainModel.bindList("/style_group_vh");
-
-  oBinding
-    .requestContexts(0, 1000)
-    .then(function (aContexts) {
-      var aItems = [
-        {
-          SrNo: "",
-          StyleGroup: "",
-          Text: "-- Clear --"
+        if (!oMainModel || !oMainModel.bindList) {
+          return;
         }
-      ];
 
-      aContexts.forEach(function (oContext) {
-        var oData = oContext.getObject();
+        var oBinding = oMainModel.bindList("/style_group_vh");
 
-        if (oData && oData.StyleGroup) {
-          aItems.push({
-            SrNo: oData.SrNo || "",
-            StyleGroup: oData.StyleGroup || "",
-            Text: oData.StyleGroup || ""
+        oBinding
+          .requestContexts(0, 1000)
+          .then(function (aContexts) {
+            var aItems = [
+              {
+                SrNo: "",
+                StyleGroup: "",
+                Text: "-- Clear --"
+              }
+            ];
+
+            aContexts.forEach(function (oContext) {
+              var oData = oContext.getObject();
+
+              if (oData && oData.StyleGroup) {
+                aItems.push({
+                  SrNo: oData.SrNo || "",
+                  StyleGroup: oData.StyleGroup || "",
+                  Text: oData.StyleGroup || ""
+                });
+              }
+            });
+
+            oStyleGroupModel.setProperty("/items", aItems);
+          })
+          .catch(function () {
+            oStyleGroupModel.setProperty("/items", [
+              {
+                SrNo: "",
+                StyleGroup: "",
+                Text: "-- Clear --"
+              }
+            ]);
           });
-        }
-      });
-
-      oStyleGroupModel.setProperty("/items", aItems);
-    })
-    .catch(function () {
-      oStyleGroupModel.setProperty("/items", [
-        {
-          SrNo: "",
-          StyleGroup: "",
-          Text: "-- Clear --"
-        }
-      ]);
-    });
-},
+      },
 
       _resetHeaderAndItemDraftData: function (oHeaderModel) {
         HeaderModel.reset(oHeaderModel);
@@ -188,56 +156,11 @@ sap.ui.define(
       },
 
       _syncHeaderToRoute: function () {
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-
-        if (!oHeaderModel) {
-          return;
-        }
-
-        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
-
-        var oHeader = oHeaderModel.getData();
-
-        this.getOwnerComponent()
-          .getRouter()
-          .navTo(
-            Constants.ROUTES.HEADER,
-            {
-              "?query": {
-                Material: this._encodeRouteValue(oHeader.Material || ""),
-                Plant: this._encodeRouteValue(oHeader.Plant || ""),
-                BomUsage: this._encodeRouteValue(Constants.BOM_USAGE),
-                AltBom: this._encodeRouteValue(oHeader.AltBom || ""),
-                BaseQty: this._encodeRouteValue(
-                  String(oHeader.BaseQty || Constants.DEFAULTS.BASE_QTY)
-                ),
-                ValidFrom: this._encodeRouteValue(oHeader.ValidFrom || ""),
-                BaseUom: this._encodeRouteValue(oHeader.BaseUom || ""),
-                BomStatus: this._encodeRouteValue(
-                  oHeader.BomStatus || Constants.BOM_STATUS
-                ),
-                HeaderText: this._encodeRouteValue(oHeader.HeaderText || ""),
-
-                CopyMaterial: this._encodeRouteValue(
-                  oHeader.CopyMaterial || ""
-                ),
-                CopyPlant: this._encodeRouteValue(oHeader.CopyPlant || ""),
-                CopyAltBom: this._encodeRouteValue(oHeader.CopyAltBom || ""),
-
-                IsValidated: this._encodeRouteValue(
-                  String(!!oHeader.IsValidated)
-                ),
-                Message: this._encodeRouteValue(oHeader.Message || ""),
-                MessageType: this._encodeRouteValue(
-                  oHeader.MessageType || Constants.DEFAULTS.MESSAGE_TYPE
-                ),
-                ShowMessage: this._encodeRouteValue(
-                  String(!!oHeader.ShowMessage)
-                )
-              }
-            },
-            true
-          );
+        /*
+         * Do not store form data in URL query.
+         * In production, draft data should not come back from old browser history.
+         */
+        return;
       },
 
       onHeaderFieldChange: function (oEvent) {
@@ -448,94 +371,129 @@ sap.ui.define(
         }
       },
 
-      _validateMaterialAndFetchAltBom: async function (bShowToast) {
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-        var oHeader;
-        var sResolvedProduct;
-        var sBackendMaterial;
-        var sPlant;
-        var oValidateResponse;
-        var oAltBomResponse;
+     _validateMaterialAndFetchAltBom: async function (bShowToast) {
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+  var oPreparedData;
+  var oPrepareResponse;
 
-        if (!oHeaderModel) {
-          throw new Error("Header model is missing.");
-        }
+  if (!oHeaderModel) {
+    throw new Error("Header model is missing.");
+  }
 
-        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-        oHeader = oHeaderModel.getData();
+  oPreparedData = await this._prepareMaterialPlantForValidation(oHeaderModel);
 
-        if (!oHeader.Material || !oHeader.Plant) {
-          throw new Error("Please enter Material and Plant first.");
-        }
+  oPrepareResponse = await this._prepareCreateBomWithBackend(
+    oPreparedData.Material,
+    oPreparedData.Plant
+  );
 
-        /*
-         * Important:
-         * Even if user typed Product Description,
-         * resolve it to actual Product before backend validation.
-         */
-        sResolvedProduct = await this._resolveTypedMaterialOrDescriptionToProduct(
-          oHeader.Material,
-          "/Material"
-        );
+  this._applyPrepareCreateBomResponse(
+    oHeaderModel,
+    oPrepareResponse
+  );
 
-        oHeader = oHeaderModel.getData();
+  if (bShowToast) {
+    MessageToast.show(
+      oPrepareResponse.Message ||
+      "Material and Plant are valid. Alternate BOM fetched."
+    );
+  }
 
-        if (!sResolvedProduct || !this._looksLikeMaterialCode(oHeader.Material)) {
-          throw new Error(
-            "Please select or enter a valid Product before validating."
-          );
-        }
+  return oPrepareResponse;
+},
+    _prepareMaterialPlantForValidation: async function (oHeaderModel) {
+  var oHeader = oHeaderModel.getData();
+  var sResolvedProduct;
+  var sMaterial;
+  var sPlant;
 
-        oHeaderModel.setProperty(
-          "/Material",
-          this._toDisplayMaterial(oHeader.Material)
-        );
+  if (!oHeader.Material || !oHeader.Plant) {
+    throw new Error("Please enter Material and Plant first.");
+  }
 
-        sBackendMaterial = this._setBackendMaterialProperty(
-          "/Material",
-          oHeader.Material
-        );
+  /*
+   * If user typed Product Description,
+   * resolve it to actual Product before backend call.
+   */
+  sResolvedProduct = await this._resolveTypedMaterialOrDescriptionToProduct(
+    oHeader.Material,
+    "/Material"
+  );
 
-        sPlant = this._toUpperTrim(oHeader.Plant);
-        oHeaderModel.setProperty("/Plant", sPlant);
+  oHeader = oHeaderModel.getData();
 
-        this._syncHeaderToRoute();
+  if (!sResolvedProduct || !this._looksLikeMaterialCode(oHeader.Material)) {
+    throw new Error(
+      "Please select or enter a valid Product before validating."
+    );
+  }
 
-        oValidateResponse = await BomActionService.validateMaterialPlant(
-          this.getOwnerComponent().getModel(),
-          {
-            Material: sBackendMaterial,
-            Plant: sPlant
-          }
-        );
+  /*
+   * Frontend sends material as-is.
+   * Backend will handle leading zero.
+   */
+  sMaterial = this._toBackendMaterial(oHeader.Material);
+  sPlant = this._toUpperTrim(oHeader.Plant);
 
-        if (!oValidateResponse.IsValid) {
-          HeaderModel.setInvalidState(
-            oHeaderModel,
-            oValidateResponse.Message || "Material and Plant validation failed.",
-            "Error"
-          );
+  oHeaderModel.setProperty("/Material", sMaterial);
+  oHeaderModel.setProperty("/BackendMaterial", sMaterial);
+  oHeaderModel.setProperty("/Plant", sPlant);
+  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-          this._syncHeaderToRoute();
+  this._syncHeaderToRoute();
 
-          throw new Error(
-            oValidateResponse.Message || "Material and Plant validation failed."
-          );
-        }
+  return {
+    Material: sMaterial,
+    Plant: sPlant
+  };
+},
+  _prepareCreateBomWithBackend: function (sMaterial, sPlant) {
+  return BomActionService.prepareCreateBOM(
+    this.getOwnerComponent().getModel(),
+    {
+      Material: sMaterial,
+      Plant: sPlant,
+      BomUsage: Constants.BOM_USAGE
+    }
+  );
+},
 
-        oHeaderModel.setProperty("/BaseUom", oValidateResponse.BaseUnit || "");
-        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+_applyPrepareCreateBomResponse: function (
+  oHeaderModel,
+  oPrepareResponse
+) {
+  oHeaderModel.setProperty("/Message", oPrepareResponse.Message || "");
+  oHeaderModel.setProperty("/ShowMessage", true);
+  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-        oAltBomResponse = await BomActionService.getNextAltBOM(
-          this.getOwnerComponent().getModel(),
-          {
-            Material: sBackendMaterial,
-            Plant: sPlant,
-            BomUsage: Constants.BOM_USAGE
-          }
-        );
+  if (!oPrepareResponse.IsValid) {
+    HeaderModel.setInvalidState(
+      oHeaderModel,
+      oPrepareResponse.Message || "Material and Plant validation failed.",
+      "Error"
+    );
 
+    this._syncHeaderToRoute();
+
+    throw new Error(
+      oPrepareResponse.Message || "Material and Plant validation failed."
+    );
+  }
+
+  oHeaderModel.setProperty("/Material", oPrepareResponse.Material || "");
+  oHeaderModel.setProperty("/BackendMaterial", oPrepareResponse.Material || "");
+  oHeaderModel.setProperty("/Plant", oPrepareResponse.Plant || "");
+  oHeaderModel.setProperty("/BaseUom", oPrepareResponse.BaseUnit || "");
+  oHeaderModel.setProperty("/AltBom", oPrepareResponse.NextAltBom || "");
+  oHeaderModel.setProperty("/IsValidated", true);
+  oHeaderModel.setProperty("/MessageType", "Success");
+
+  this._syncHeaderToRoute();
+},
+
+      _applyAltBomResponse: function (oHeaderModel, oAltBomResponse) {
         oHeaderModel.setProperty("/Message", oAltBomResponse.Message || "");
         oHeaderModel.setProperty("/ShowMessage", true);
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
@@ -563,15 +521,6 @@ sap.ui.define(
         oHeaderModel.setProperty("/MessageType", "Success");
 
         this._syncHeaderToRoute();
-
-        if (bShowToast) {
-          MessageToast.show(
-            oAltBomResponse.Message ||
-            "Material and Plant are valid. Alternate BOM fetched."
-          );
-        }
-
-        return oAltBomResponse;
       },
 
       onCancel: function () {
@@ -581,9 +530,7 @@ sap.ui.define(
 
         this.getOwnerComponent().getRouter().navTo(
           Constants.ROUTES.HEADER,
-          {
-            "?query": {}
-          },
+          {},
           true
         );
 
@@ -744,7 +691,12 @@ sap.ui.define(
             component: FormatterHelper.formatComponentForDisplay(
               oItem.BillOfMaterialComponent || ""
             ),
-            description: "",
+         description:
+  oItem.ComponentDescription ||
+  oItem.componentDescription ||
+  oItem.ProductDescription ||
+  oItem.Description ||
+  "",
             quantity: FormatterHelper.formatQuantityForDisplay(
               oItem.BillOfMaterialItemQuantity
             ),
@@ -874,106 +826,106 @@ sap.ui.define(
           });
       },
 
-   onHeaderTextValueHelp: function () {
-  var oView = this.getView();
+      onHeaderTextValueHelp: function () {
+        var oView = this.getView();
 
-  if (!this._oHeaderTextVHDialog) {
-    this._oHeaderTextVHDialog = new TableSelectDialog({
-      title: "Select Alternative BOM Text",
-      noDataText: "No Style Group found",
-      growing: true,
-      growingThreshold: 20,
+        if (!this._oHeaderTextVHDialog) {
+          this._oHeaderTextVHDialog = new TableSelectDialog({
+            title: "Select Alternative BOM Text",
+            noDataText: "No Style Group found",
+            growing: true,
+            growingThreshold: 20,
 
-      columns: [
-        new Column({
-          header: new Text({
-            text: "Sr No"
-          })
-        }),
-        new Column({
-          header: new Text({
-            text: "Style Group"
-          })
-        })
-      ],
+            columns: [
+              new Column({
+                header: new Text({
+                  text: "Sr No"
+                })
+              }),
+              new Column({
+                header: new Text({
+                  text: "Style Group"
+                })
+              })
+            ],
 
-      search: function (oEvent) {
-        var sValue = String(oEvent.getParameter("value") || "");
-        var oBinding = oEvent.getSource().getBinding("items");
-        var aFilters = [];
+            search: function (oEvent) {
+              var sValue = String(oEvent.getParameter("value") || "");
+              var oBinding = oEvent.getSource().getBinding("items");
+              var aFilters = [];
 
-        if (sValue) {
-          aFilters.push(
-            new Filter({
-              filters: [
-                new Filter("StyleGroup", FilterOperator.Contains, sValue),
-                new Filter("SrNo", FilterOperator.Contains, sValue)
-              ],
-              and: false
+              if (sValue) {
+                aFilters.push(
+                  new Filter({
+                    filters: [
+                      new Filter("StyleGroup", FilterOperator.Contains, sValue),
+                      new Filter("SrNo", FilterOperator.Contains, sValue)
+                    ],
+                    and: false
+                  })
+                );
+              }
+
+              if (oBinding) {
+                oBinding.filter(aFilters);
+              }
+            },
+
+            confirm: function (oEvent) {
+              var oSelectedItem = oEvent.getParameter("selectedItem");
+              var oContext;
+              var oData;
+              var sStyleGroup;
+              var oHeaderModel;
+
+              if (!oSelectedItem) {
+                return;
+              }
+
+              oContext = oSelectedItem.getBindingContext();
+
+              if (!oContext) {
+                return;
+              }
+
+              oData = oContext.getObject();
+              sStyleGroup = String(oData.StyleGroup || "").trim();
+
+              oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+
+              if (!oHeaderModel) {
+                return;
+              }
+
+              oHeaderModel.setProperty("/HeaderText", sStyleGroup);
+
+              HeaderModel.clearValidation(oHeaderModel);
+              this._syncHeaderToRoute();
+            }.bind(this)
+          });
+
+          this._oHeaderTextVHDialog.setModel(this.getOwnerComponent().getModel());
+
+          this._oHeaderTextVHDialog.bindAggregation("items", {
+            path: "/style_group_vh",
+            template: new ColumnListItem({
+              type: "Active",
+              cells: [
+                new Text({
+                  text: "{SrNo}"
+                }),
+                new Text({
+                  text: "{StyleGroup}"
+                })
+              ]
             })
-          );
+          });
+
+          oView.addDependent(this._oHeaderTextVHDialog);
         }
 
-        if (oBinding) {
-          oBinding.filter(aFilters);
-        }
+        this._oHeaderTextVHDialog.open();
       },
-
-      confirm: function (oEvent) {
-        var oSelectedItem = oEvent.getParameter("selectedItem");
-        var oContext;
-        var oData;
-        var sStyleGroup;
-        var oHeaderModel;
-
-        if (!oSelectedItem) {
-          return;
-        }
-
-        oContext = oSelectedItem.getBindingContext();
-
-        if (!oContext) {
-          return;
-        }
-
-        oData = oContext.getObject();
-        sStyleGroup = String(oData.StyleGroup || "").trim();
-
-        oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-
-        if (!oHeaderModel) {
-          return;
-        }
-
-        oHeaderModel.setProperty("/HeaderText", sStyleGroup);
-
-        HeaderModel.clearValidation(oHeaderModel);
-        this._syncHeaderToRoute();
-      }.bind(this)
-    });
-
-    this._oHeaderTextVHDialog.setModel(this.getOwnerComponent().getModel());
-
-    this._oHeaderTextVHDialog.bindAggregation("items", {
-      path: "/style_group_vh",
-      template: new ColumnListItem({
-        type: "Active",
-        cells: [
-          new Text({
-            text: "{SrNo}"
-          }),
-          new Text({
-            text: "{StyleGroup}"
-          })
-        ]
-      })
-    });
-
-    oView.addDependent(this._oHeaderTextVHDialog);
-  }
-
-  this._oHeaderTextVHDialog.open();
-},
 
       _resolveMaterialFromValueHelp: function (sMaterial) {
         var sNormalizedMaterial = FormatterHelper.normalizeMaterialInput(
@@ -1674,16 +1626,10 @@ sap.ui.define(
         return this._toBackendMaterial(sMaterial);
       },
 
-      _toBackendMaterial: function (sMaterial) {
-        sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
-        sMaterial = String(sMaterial || "").trim().toUpperCase();
-
-        if (/^\d+$/.test(sMaterial) && sMaterial.length < 18) {
-          return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
-        }
-
-        return sMaterial;
-      },
+   _toBackendMaterial: function (sMaterial) {
+  sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+  return String(sMaterial || "").trim().toUpperCase();
+},
 
       /* =========================================================== */
       /* Route Encoding / Error                                      */
@@ -1700,7 +1646,9 @@ sap.ui.define(
           return decodeURIComponent(
             String(vValue === undefined || vValue === null ? "" : vValue)
           );
-        } catch (e) {
+        } catch (oError) {
+          void oError;
+
           return String(vValue === undefined || vValue === null ? "" : vValue);
         }
       },

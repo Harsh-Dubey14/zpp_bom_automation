@@ -1,9 +1,9 @@
 /* global Promise */
+/* eslint-disable max-params */
 
 sap.ui.define(
   [
     "sap/ui/core/mvc/Controller",
-    "sap/ui/core/routing/History",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/core/BusyIndicator",
@@ -25,7 +25,6 @@ sap.ui.define(
   ],
   function (
     Controller,
-    History,
     MessageToast,
     MessageBox,
     BusyIndicator,
@@ -65,60 +64,57 @@ sap.ui.define(
           .attachPatternMatched(this._onRouteMatched, this);
       },
 
-      _onRouteMatched: async function () {
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+    _onRouteMatched: async function () {
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
-        if (!oHeaderModel) {
-          this.getOwnerComponent()
-            .getRouter()
-            .navTo(Constants.ROUTES.HEADER, {}, true);
-          return;
+  if (!oHeaderModel) {
+    this.getOwnerComponent()
+      .getRouter()
+      .navTo(Constants.ROUTES.HEADER, {}, true);
+    return;
+  }
+
+  this.getView().setModel(oHeaderModel, "headerModel");
+
+  var oItemModel = ItemModel.init(
+    this.getOwnerComponent(),
+    this.getView()
+  );
+
+  ResultModel.reset(this.getView().getModel("resultModel"));
+
+  var aItems = oItemModel.getProperty("/items") || [];
+
+  if (aItems.length === 0) {
+    this.onAddRow();
+    return;
+  }
+
+  /*
+   * Do not call backend again for copied BOM items.
+   * GetAlternateBOMItems should already return:
+   * component, description, normalized UOM, sort string.
+   */
+  ItemModel.setItems(oItemModel, aItems);
+},
+
+   onNavBack: function () {
+  var that = this;
+
+  MessageBox.warning(
+    "Are you sure you want to go back? All item data will be lost.",
+    {
+      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+      emphasizedAction: MessageBox.Action.OK,
+
+      onClose: function (sAction) {
+        if (sAction === MessageBox.Action.OK) {
+          that._goToFreshHeaderScreen();
         }
-
-        this.getView().setModel(oHeaderModel, "headerModel");
-
-        var oItemModel = ItemModel.init(
-          this.getOwnerComponent(),
-          this.getView()
-        );
-
-        ResultModel.reset(this.getView().getModel("resultModel"));
-
-        var aItems = oItemModel.getProperty("/items") || [];
-
-        if (aItems.length === 0) {
-          this.onAddRow();
-          return;
-        }
-
-        await this._fillCopiedAlternateBomDetails();
-      },
-
-      onNavBack: function () {
-        var that = this;
-
-        MessageBox.warning(
-          "Are you sure you want to go back? All item data will be lost.",
-          {
-            actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-            emphasizedAction: MessageBox.Action.OK,
-
-            onClose: function (sAction) {
-              if (sAction === MessageBox.Action.OK) {
-                that._clearBomDraftData();
-
-                that.getOwnerComponent().getRouter().navTo(
-                  Constants.ROUTES.HEADER,
-                  {
-                    "?query": {}
-                  },
-                  true
-                );
-              }
-            }
-          }
-        );
-      },
+      }
+    }
+  );
+},
 
       onAddRow: function () {
         var oItemModel = ItemModel.init(
@@ -220,92 +216,62 @@ sap.ui.define(
       },
 
       _validateBeforeSaveAsync: async function () {
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-        var oHeader = oHeaderModel ? oHeaderModel.getData() : null;
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+  var oHeader = oHeaderModel ? oHeaderModel.getData() : null;
 
-        var oItemModel = this.getOwnerComponent().getModel("itemModel");
-        var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
+  var oItemModel = this.getOwnerComponent().getModel("itemModel");
+  var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
 
-        var oValidation = ItemScreenService.validateBeforeSave(oHeader, aItems);
+  var oValidation = ItemScreenService.validateBeforeSave(oHeader, aItems);
 
-        if (!oValidation.valid) {
-          return oValidation;
-        }
+  if (!oValidation.valid) {
+    return oValidation;
+  }
 
-        var sPlant = oHeader.Plant;
-        var oODataModel = this.getOwnerComponent().getModel();
+  /*
+   * No row-by-row backend validation here.
+   * Component plant validation should happen when user selects component
+   * from value help or when backend create API validates/posting happens.
+   *
+   * For copied BOM items, GetAlternateBOMItems already gives:
+   * component + description + normalized UOM + sort string.
+   */
+  aItems.forEach(
+    function (oItem) {
+      oItem.component = this._toBackendMaterial(oItem.component);
+      oItem.uom = String(oItem.uom || "").trim().toUpperCase();
+      oItem.sortString = this._getCopiedBomSortString(oItem);
+    }.bind(this)
+  );
 
-        for (var i = 0; i < aItems.length; i++) {
-          var oItem = aItems[i];
+  ItemModel.setItems(oItemModel, aItems);
 
-          var sExistingSortString = this._getCopiedBomSortString(oItem);
+  return {
+    valid: true,
+    message: ""
+  };
+},
 
-          var sComponent = await this._resolveBackendComponent(
-            oItem.component,
-            sPlant
-          );
+     _buildBomCreatePayload: function () {
+  var oHeader = this.getOwnerComponent()
+    .getModel("headerModel")
+    .getData();
 
-          var oCheckResult =
-            await ItemScreenService.checkComponentPlantExtension(
-              oODataModel,
-              sComponent,
-              sPlant
-            );
+  var oItemModel = this.getOwnerComponent().getModel("itemModel");
+  var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
 
-          if (!oCheckResult.valid) {
-            return {
-              valid: false,
-              message:
-                "Row " +
-                (i + 1) +
-                ": Component " +
-                sComponent +
-                " is not available in Plant " +
-                sPlant +
-                "."
-            };
-          }
+  aItems.forEach(
+    function (oItem) {
+      oItem.component = this._toBackendMaterial(oItem.component);
+      oItem.uom = String(oItem.uom || "").trim().toUpperCase();
+      oItem.sortString = this._getCopiedBomSortString(oItem);
+    }.bind(this)
+  );
 
-          oItem.component = this._toBackendMaterial(
-            oCheckResult.component || sComponent
-          );
+  ItemModel.setItems(oItemModel, aItems);
 
-          oItem.description = oCheckResult.description || "";
-
-          if (!oItem.uom) {
-            oItem.uom = oCheckResult.uom || "";
-          }
-
-          oItem.sortString = sExistingSortString;
-        }
-
-        ItemModel.setItems(oItemModel, aItems);
-
-        return {
-          valid: true,
-          message: ""
-        };
-      },
-
-      _buildBomCreatePayload: function () {
-        var oHeader = this.getOwnerComponent()
-          .getModel("headerModel")
-          .getData();
-
-        var oItemModel = this.getOwnerComponent().getModel("itemModel");
-        var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
-
-        aItems.forEach(
-          function (oItem) {
-            oItem.component = this._toBackendMaterial(oItem.component);
-            oItem.sortString = this._getCopiedBomSortString(oItem);
-          }.bind(this)
-        );
-
-        ItemModel.setItems(oItemModel, aItems);
-
-        return ItemScreenService.buildBomCreatePayload(oHeader, aItems);
-      },
+  return ItemScreenService.buildBomCreatePayload(oHeader, aItems);
+},
 
       _handleCreateResponse: function (oResponse) {
         var oResultModel = this.getView().getModel("resultModel");
@@ -340,43 +306,27 @@ sap.ui.define(
         );
       },
 
-      onCancel: function () {
-        var that = this;
+  onCancel: function () {
+  var that = this;
 
-        MessageBox.warning(
-          "Are you sure you want to cancel? All item data will be lost.",
-          {
-            actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-            emphasizedAction: MessageBox.Action.OK,
+  MessageBox.warning(
+    "Are you sure you want to cancel? All item data will be lost.",
+    {
+      actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+      emphasizedAction: MessageBox.Action.OK,
 
-            onClose: function (sAction) {
-              if (sAction === MessageBox.Action.OK) {
-                that._clearBomDraftData();
-
-                that.getOwnerComponent().getRouter().navTo(
-                  Constants.ROUTES.HEADER,
-                  {
-                    "?query": {}
-                  },
-                  true
-                );
-              }
-            }
-          }
-        );
-      },
+      onClose: function (sAction) {
+        if (sAction === MessageBox.Action.OK) {
+          that._goToFreshHeaderScreen();
+        }
+      }
+    }
+  );
+},
 
       onNewBOM: function () {
-        this._clearBomDraftData();
-
-        this.getOwnerComponent().getRouter().navTo(
-          Constants.ROUTES.HEADER,
-          {
-            "?query": {}
-          },
-          true
-        );
-      },
+  this._goToFreshHeaderScreen();
+},
 
       onComponentChange: async function (oEvent) {
         var oInput = oEvent.getSource();
@@ -437,59 +387,32 @@ sap.ui.define(
         }
       },
 
-      _fillCopiedAlternateBomDetails: async function () {
-        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-        var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+    _fillCopiedAlternateBomDetails: async function () {
+  var oItemModel = this.getOwnerComponent().getModel("itemModel");
+  var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
 
-        var oItemModel = this.getOwnerComponent().getModel("itemModel");
-        var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
+  if (!aItems.length) {
+    return;
+  }
 
-        if (!sPlant || !aItems.length) {
-          return;
-        }
+  aItems.forEach(
+    function (oItem) {
+      oItem.component = this._toBackendMaterial(oItem.component);
+      oItem.description =
+        oItem.description ||
+        oItem.ComponentDescription ||
+        oItem.componentDescription ||
+        oItem.ProductDescription ||
+        oItem.Description ||
+        "";
 
-        var oODataModel = this.getOwnerComponent().getModel();
+      oItem.uom = String(oItem.uom || "").trim().toUpperCase();
+      oItem.sortString = this._getCopiedBomSortString(oItem);
+    }.bind(this)
+  );
 
-        for (var i = 0; i < aItems.length; i++) {
-          var oItem = aItems[i];
-
-          if (!oItem.component) {
-            continue;
-          }
-
-          var sExistingSortString = this._getCopiedBomSortString(oItem);
-
-          var sComponent = await this._resolveBackendComponent(
-            oItem.component,
-            sPlant
-          );
-
-          oItem.component = sComponent;
-
-          if (!oItem.description || !oItem.uom) {
-            oItem.description = "";
-            oItem.uom = "";
-
-            var oResult = await ItemScreenService.checkComponentPlantExtension(
-              oODataModel,
-              sComponent,
-              sPlant
-            );
-
-            if (oResult.valid) {
-              oItem.component = this._toBackendMaterial(
-                oResult.component || sComponent
-              );
-              oItem.description = oResult.description || "";
-              oItem.uom = oResult.uom || "";
-            }
-          }
-
-          oItem.sortString = sExistingSortString;
-        }
-
-        ItemModel.setItems(oItemModel, aItems);
-      },
+  ItemModel.setItems(oItemModel, aItems);
+},
 
       _getCopiedBomSortString: function (oItem) {
         if (!oItem) {
@@ -836,6 +759,14 @@ sap.ui.define(
 
   this._oUomVHDialog.setModel(oLocalModel, "uomVHModel");
   this._oUomVHDialog.open();
+},_goToFreshHeaderScreen: function () {
+  this._clearBomDraftData();
+
+  this.getOwnerComponent().getRouter().navTo(
+    Constants.ROUTES.HEADER,
+    {},
+    true
+  );
 },
       _openSortStringValueHelp: function () {
         var that = this;
@@ -992,23 +923,35 @@ sap.ui.define(
         return String(sMaterial || "").trim();
       },
 
-      _toBackendMaterial: function (sMaterial) {
-        sMaterial = this._normalizeMaterialInput(sMaterial);
-
-        if (/^\d+$/.test(sMaterial) && sMaterial.length < 18) {
-          return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
-        }
-
-        return sMaterial;
-      },
+    _toBackendMaterial: function (sMaterial) {
+  return this._normalizeMaterialInput(sMaterial);
+},
 
       _clearBomDraftData: function () {
-        ItemValueHelpHelper.clearSortStringCache(this);
+  ItemValueHelpHelper.clearSortStringCache(this);
 
-        HeaderModel.reset(this.getOwnerComponent().getModel("headerModel"));
-        ItemModel.reset(this.getOwnerComponent().getModel("itemModel"));
-        ResultModel.reset(this.getView().getModel("resultModel"));
-      },
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+  var oItemModel = this.getOwnerComponent().getModel("itemModel");
+  var oResultModel = this.getView().getModel("resultModel");
+
+  if (oHeaderModel) {
+    HeaderModel.reset(oHeaderModel);
+  }
+
+  if (oItemModel) {
+    ItemModel.reset(oItemModel);
+  }
+
+  if (oResultModel) {
+    ResultModel.reset(oResultModel);
+  }
+
+  this._sSortStringVHMaterial = "";
+  this._oSortStringVHModel = null;
+  this._oCurrentComponentContext = null;
+  this._oCurrentSortStringContext = null;
+  this._oCurrentUomContext = null;
+},
 
       _getErrorText: function (oError) {
         return ErrorHelper.getErrorText(oError);

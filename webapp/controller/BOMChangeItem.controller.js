@@ -1,4 +1,5 @@
 /* global Promise */
+/* eslint-disable max-params */
 
 sap.ui.define(
     [
@@ -7,6 +8,12 @@ sap.ui.define(
         "sap/m/MessageBox",
         "sap/ui/core/BusyIndicator",
         "sap/ui/model/json/JSONModel",
+        "sap/ui/model/Filter",
+        "sap/ui/model/FilterOperator",
+        "sap/m/TableSelectDialog",
+        "sap/m/ColumnListItem",
+        "sap/m/Column",
+        "sap/m/Text",
         "zppbomautomation/config/Constants",
         "zppbomautomation/model/ItemModel",
         "zppbomautomation/model/ResultModel",
@@ -21,6 +28,12 @@ sap.ui.define(
         MessageBox,
         BusyIndicator,
         JSONModel,
+        Filter,
+        FilterOperator,
+        TableSelectDialog,
+        ColumnListItem,
+        Column,
+        Text,
         Constants,
         ItemModel,
         ResultModel,
@@ -39,6 +52,8 @@ sap.ui.define(
                 this._oSortStringVHModel = null;
                 this._oCurrentComponentContext = null;
                 this._oCurrentSortStringContext = null;
+                this._oCurrentUomContext = null;
+                this._oUomVHDialog = null;
 
                 this.getOwnerComponent()
                     .getRouter()
@@ -60,7 +75,7 @@ sap.ui.define(
                 var oHeaderData = oChangeModel.getProperty("/HeaderData");
                 var aFetchedItems = oChangeModel.getProperty("/FetchedItems") || [];
 
-                if (!oHeaderData || !aFetchedItems.length) {
+                if (!oHeaderData) {
                     MessageBox.error("Please fetch BOM details first.");
                     this.getOwnerComponent()
                         .getRouter()
@@ -69,6 +84,17 @@ sap.ui.define(
                 }
 
                 aFetchedItems = this._normalizeFetchedChangeItems(aFetchedItems);
+
+                aFetchedItems = aFetchedItems.filter(function (oItem) {
+                    return (
+                        oItem &&
+                        (
+                            oItem.component ||
+                            oItem.billOfMaterialItemNodeNumber ||
+                            oItem.originalItemNumber
+                        )
+                    );
+                });
 
                 var oHeaderModel = new JSONModel(
                     this._normalizeChangeHeaderData(oHeaderData, aFetchedItems[0])
@@ -80,14 +106,17 @@ sap.ui.define(
                 var oItemModel = ItemModel.init(this.getOwnerComponent(), this.getView());
 
                 ItemModel.setItems(oItemModel, aFetchedItems);
-                oItemModel.setProperty("/pendingDeletes", []);
 
+                if (!aFetchedItems.length) {
+                    ItemModel.addRow(oItemModel);
+                    this._markLastAddedRowAsNew(oItemModel, "0001");
+                }
+
+                oItemModel.setProperty("/pendingDeletes", []);
                 this.getView().setModel(oItemModel, "itemModel");
 
                 ResultModel.reset(this.getView().getModel("resultModel"));
                 this._setResultInitial(this.getView().getModel("resultModel"));
-
-                await this._fillChangeModeComponentDetails();
             },
 
             _normalizeChangeHeaderData: function (oHeaderData, oFirstItem) {
@@ -205,6 +234,30 @@ sap.ui.define(
                         oFirstItem.bomVersionStatus ||
                         Constants.BOM_STATUS,
 
+                    BOMAlternativeText:
+                        oHeaderData.BOMAlternativeText ||
+                        oHeaderData.bomAlternativeText ||
+                        oHeaderData.BOMALTERNATIVETEXT ||
+                        oHeaderData.HeaderText ||
+                        oHeaderData.headerText ||
+                        oFirstItem.BOMAlternativeText ||
+                        oFirstItem.bomAlternativeText ||
+                        oFirstItem.BOMALTERNATIVETEXT ||
+                        oFirstItem.HeaderText ||
+                        oFirstItem.headerText ||
+                        "",
+
+                    HeaderText:
+                        oHeaderData.HeaderText ||
+                        oHeaderData.BOMAlternativeText ||
+                        oHeaderData.bomAlternativeText ||
+                        oHeaderData.BOMALTERNATIVETEXT ||
+                        oFirstItem.HeaderText ||
+                        oFirstItem.BOMAlternativeText ||
+                        oFirstItem.bomAlternativeText ||
+                        oFirstItem.BOMALTERNATIVETEXT ||
+                        "",
+
                     IsValidated: true,
                     Message: "BOM loaded for change.",
                     MessageType: "Success",
@@ -299,10 +352,12 @@ sap.ui.define(
                 oLastItem.description = "";
                 oLastItem.quantity = "";
                 oLastItem.uom = "";
+                oLastItem.sortString = "";
                 oLastItem.sortStringValue = "";
                 oLastItem.isProductionRelevant = true;
 
                 oItemModel.setProperty("/items", aItems);
+                oItemModel.refresh(true);
             },
 
             _getNextFrontendItemNumber: function (aItems) {
@@ -420,16 +475,255 @@ sap.ui.define(
             },
 
             onUomChange: function (oEvent) {
+                this.onUomManualInputBlock(oEvent);
+            },
+
+            onUomManualInputBlock: function (oEvent) {
                 var oInput = oEvent.getSource();
                 var oContext = oInput.getBindingContext("itemModel");
-                var sValue = String(oInput.getValue() || "").trim().toUpperCase();
-
-                oInput.setValue(sValue);
+                var sCurrentUom = "";
 
                 if (oContext) {
-                    oContext.getModel().setProperty(oContext.getPath() + "/uom", sValue);
-                    this._markRowChanged(oContext);
+                    sCurrentUom = oContext.getProperty("uom") || "";
                 }
+
+                oInput.setValue(sCurrentUom);
+                MessageToast.show("Please select UoM from value help.");
+            },
+
+            onUomValueHelp: function (oEvent) {
+                var oInput = oEvent.getSource();
+
+                this._oCurrentUomContext = oInput.getBindingContext("itemModel");
+
+                if (!this._oCurrentUomContext) {
+                    MessageBox.error("Could not determine selected item row.");
+                    return;
+                }
+
+                this._openUomValueHelp();
+            },
+
+            _openUomValueHelp: function () {
+                var oContext = this._oCurrentUomContext;
+                var oItem;
+                var sComponent;
+
+                if (!oContext) {
+                    MessageBox.error("Could not determine selected item row.");
+                    return;
+                }
+
+                oItem = oContext.getObject() || {};
+                sComponent = this._toBackendMaterial(oItem.component || "");
+
+                if (!sComponent) {
+                    MessageBox.warning("Please select Component first.");
+                    return;
+                }
+
+                BusyIndicator.show(0);
+
+                this._loadUomValueHelpData(sComponent)
+                    .then(
+                        function (oLocalModel) {
+                            var aItems = oLocalModel.getProperty("/items") || [];
+
+                            if (!aItems.length) {
+                                MessageBox.warning(
+                                    "No UoM found for component " + sComponent + "."
+                                );
+                                return;
+                            }
+
+                            this._openUomValueHelpDialog(oLocalModel);
+                        }.bind(this)
+                    )
+                    .catch(
+                        function (oError) {
+                            MessageBox.error(this._getErrorText(oError));
+                        }.bind(this)
+                    )
+                    .finally(function () {
+                        BusyIndicator.hide();
+                    });
+            },
+
+            _loadUomValueHelpData: function (sComponent) {
+                var oODataModel = this.getOwnerComponent().getModel();
+                var sEntityPath =
+                    Constants.VALUE_HELP.UOM_PATH ||
+                    "/produtuom";
+
+                return new Promise(function (resolve, reject) {
+                    var oListBinding = oODataModel.bindList(
+                        sEntityPath,
+                        undefined,
+                        undefined,
+                        [
+                            new Filter("Product", FilterOperator.EQ, sComponent)
+                        ],
+                        {
+                            $select: Constants.VALUE_HELP.UOM_SELECT
+                                ? Constants.VALUE_HELP.UOM_SELECT.join(",")
+                                : "Product,AlternativeUnit,BaseUnit"
+                        }
+                    );
+
+                    oListBinding
+                        .requestContexts(0, 5000)
+                        .then(function (aContexts) {
+                            var aResults = aContexts.map(function (oContext) {
+                                var oData = oContext.getObject();
+
+                                return {
+                                    Product: oData.Product || "",
+                                    AlternativeUnit: oData.AlternativeUnit || "",
+                                    BaseUnit: oData.BaseUnit || ""
+                                };
+                            });
+
+                            resolve(
+                                new JSONModel({
+                                    items: aResults
+                                })
+                            );
+                        })
+                        .catch(function (oError) {
+                            reject(oError);
+                        });
+                });
+            },
+
+            _openUomValueHelpDialog: function (oLocalModel) {
+                if (!this._oUomVHDialog) {
+                    this._oUomVHDialog = new TableSelectDialog({
+                        title: "Select UoM",
+                        noDataText: "No UoM found",
+                        growing: true,
+                        growingThreshold: 20,
+                        multiSelect: false,
+                        contentWidth: "38rem",
+                        contentHeight: "28rem",
+                        stretch: false,
+
+                        columns: [
+                            new Column({
+                                width: "12rem",
+                                header: new Text({
+                                    text: "Product"
+                                })
+                            }),
+
+                            new Column({
+                                width: "12rem",
+                                header: new Text({
+                                    text: "Alternative Unit"
+                                })
+                            }),
+
+                            new Column({
+                                width: "10rem",
+                                header: new Text({
+                                    text: "Base Unit"
+                                })
+                            })
+                        ],
+
+                        search: function (oEvent) {
+                            var sValue = String(oEvent.getParameter("value") || "");
+                            var oBinding = oEvent.getSource().getBinding("items");
+                            var aFilters = [];
+
+                            if (sValue) {
+                                aFilters.push(
+                                    new Filter({
+                                        filters: [
+                                            new Filter("Product", FilterOperator.Contains, sValue),
+                                            new Filter("AlternativeUnit", FilterOperator.Contains, sValue),
+                                            new Filter("BaseUnit", FilterOperator.Contains, sValue)
+                                        ],
+                                        and: false
+                                    })
+                                );
+                            }
+
+                            if (oBinding) {
+                                oBinding.filter(aFilters);
+                            }
+                        },
+
+                        confirm: function (oEvent) {
+                            var oSelectedItem = oEvent.getParameter("selectedItem");
+                            var oSelectedContext;
+                            var oData;
+                            var sUom;
+                            var oItemModel;
+                            var sPath;
+
+                            if (!oSelectedItem || !this._oCurrentUomContext) {
+                                return;
+                            }
+
+                            oSelectedContext = oSelectedItem.getBindingContext("uomVHModel");
+
+                            if (!oSelectedContext) {
+                                return;
+                            }
+
+                            oData = oSelectedContext.getObject();
+
+                            sUom = String(oData.AlternativeUnit || "")
+                                .trim()
+                                .toUpperCase();
+
+                            if (!sUom) {
+                                MessageBox.warning(
+                                    "Selected row does not contain Alternative Unit."
+                                );
+                                return;
+                            }
+
+                            oItemModel = this._oCurrentUomContext.getModel();
+                            sPath = this._oCurrentUomContext.getPath();
+
+                            oItemModel.setProperty(sPath + "/uom", sUom);
+
+                            this._markRowChanged(this._oCurrentUomContext);
+
+                            this._oCurrentUomContext = null;
+                        }.bind(this),
+
+                        cancel: function () {
+                            this._oCurrentUomContext = null;
+                        }.bind(this)
+                    });
+
+                    this._oUomVHDialog.bindAggregation("items", {
+                        path: "uomVHModel>/items",
+                        template: new ColumnListItem({
+                            type: "Active",
+                            cells: [
+                                new Text({
+                                    text: "{uomVHModel>Product}"
+                                }),
+
+                                new Text({
+                                    text: "{uomVHModel>AlternativeUnit}"
+                                }),
+
+                                new Text({
+                                    text: "{uomVHModel>BaseUnit}"
+                                })
+                            ]
+                        })
+                    });
+
+                    this.getView().addDependent(this._oUomVHDialog);
+                }
+
+                this._oUomVHDialog.setModel(oLocalModel, "uomVHModel");
+                this._oUomVHDialog.open();
             },
 
             onComponentChange: async function (oEvent) {
@@ -452,6 +746,7 @@ sap.ui.define(
                     oItemModel.setProperty(sPath + "/component", "");
                     oItemModel.setProperty(sPath + "/description", "");
                     oItemModel.setProperty(sPath + "/uom", "");
+                    oItemModel.setProperty(sPath + "/sortString", "");
                     oItemModel.setProperty(sPath + "/sortStringValue", "");
                     this._markRowChanged(oContext);
                     return;
@@ -475,6 +770,7 @@ sap.ui.define(
                     oItemModel.setProperty(sPath + "/component", sComponent);
                     oItemModel.setProperty(sPath + "/description", "");
                     oItemModel.setProperty(sPath + "/uom", "");
+                    oItemModel.setProperty(sPath + "/sortString", "");
                     oItemModel.setProperty(sPath + "/sortStringValue", "");
 
                     var bValid = await ItemScreenService.fillComponentDetails(
@@ -563,6 +859,7 @@ sap.ui.define(
                     ItemScreenService.getComponentUom(oData)
                 );
 
+                oItemModel.setProperty(sPath + "/sortString", "");
                 oItemModel.setProperty(sPath + "/sortStringValue", "");
 
                 this._markRowChanged(oContext);
@@ -589,9 +886,8 @@ sap.ui.define(
                 oInput.setValue(sValue);
 
                 if (oContext) {
-                    oContext
-                        .getModel()
-                        .setProperty(oContext.getPath() + "/sortStringValue", sValue);
+                    oContext.getModel().setProperty(oContext.getPath() + "/sortString", sValue);
+                    oContext.getModel().setProperty(oContext.getPath() + "/sortStringValue", sValue);
 
                     this._markRowChanged(oContext);
                 }
@@ -707,8 +1003,10 @@ sap.ui.define(
                 }
 
                 var oBaseRow = aItems[iBaseIndex];
+                var sFirstSortString = this._cleanSortString(aSelectedZcomb[0]);
 
-                oBaseRow.sortStringValue = this._cleanSortString(aSelectedZcomb[0]);
+                oBaseRow.sortString = sFirstSortString;
+                oBaseRow.sortStringValue = sFirstSortString;
 
                 if (oBaseRow.rowStatus === Constants.ROW_STATUS.NEW || oBaseRow.isNew) {
                     oBaseRow.rowStatus = Constants.ROW_STATUS.NEW;
@@ -726,9 +1024,11 @@ sap.ui.define(
 
                 for (var i = 1; i < aSelectedZcomb.length; i++) {
                     var oNewRow = JSON.parse(JSON.stringify(oBaseRow));
+                    var sSortString = this._cleanSortString(aSelectedZcomb[i]);
 
                     oNewRow.item = this._getNextFrontendItemNumber(aItems);
-                    oNewRow.sortStringValue = this._cleanSortString(aSelectedZcomb[i]);
+                    oNewRow.sortString = sSortString;
+                    oNewRow.sortStringValue = sSortString;
 
                     oNewRow.rowStatus = Constants.ROW_STATUS.NEW;
                     oNewRow.changeMode = Constants.CHANGE_MODE.INSERT;
@@ -808,21 +1108,15 @@ sap.ui.define(
                     this._setResultBusy(oResultModel, "Posting BOM changes...");
                     BusyIndicator.show(0);
 
-                    for (var i = 0; i < aPayloads.length; i++) {
-                        var oResponse = await BomActionService.changeBomItem(
-                            this.getOwnerComponent().getModel(),
-                            aPayloads[i]
-                        );
+                    var oResponse = await BomActionService.changeBomItems(
+                        this.getOwnerComponent().getModel(),
+                        aPayloads
+                    );
 
-                        if (!this._isBackendActionSuccess(oResponse)) {
-                            throw {
-                                message:
-                                    "Item " +
-                                    (aPayloads[i].BillOfMaterialItemNumber || i + 1) +
-                                    " failed. " +
-                                    this._getBackendActionMessage(oResponse)
-                            };
-                        }
+                    if (!this._isBulkBackendActionSuccess(oResponse)) {
+                        throw {
+                            message: this._getBulkBackendActionMessage(oResponse)
+                        };
                     }
 
                     await this._refreshChangeBomItemsAfterSave();
@@ -976,9 +1270,10 @@ sap.ui.define(
                         };
                     }
 
-                    oItem.sortStringValue = this._cleanSortString(
-                        oItem.sortStringValue || ""
+                    oItem.sortString = this._cleanSortString(
+                        oItem.sortStringValue || oItem.sortString || ""
                     );
+                    oItem.sortStringValue = oItem.sortString;
 
                     if (
                         oItem.rowStatus === Constants.ROW_STATUS.CHANGED &&
@@ -1096,6 +1391,16 @@ sap.ui.define(
                     Plant:
                         String(oItem.plant || oHeader.Plant || "").trim(),
 
+                    BillOfMaterialVersion:
+                        oItem.billOfMaterialVersion ||
+                        oHeader.BillOfMaterialVersion ||
+                        "",
+
+                    HeaderChangeDocument:
+                        oItem.headerChangeDocument ||
+                        oHeader.HeaderChangeDocument ||
+                        "",
+
                     BillOfMaterialItemNodeNumber:
                         sChangeMode === Constants.CHANGE_MODE.INSERT
                             ? ""
@@ -1117,7 +1422,7 @@ sap.ui.define(
                         oItem.description || "",
 
                     BOMItemSorter:
-                        this._cleanSortString(oItem.sortStringValue || ""),
+                        this._cleanSortString(oItem.sortStringValue || oItem.sortString || ""),
 
                     ChangeMode:
                         sChangeMode
@@ -1135,8 +1440,6 @@ sap.ui.define(
 
                 ItemModel.setItems(oItemModel, aRows);
                 oItemModel.setProperty("/pendingDeletes", []);
-
-                await this._fillChangeModeComponentDetails();
 
                 var oChangeModel = this.getOwnerComponent().getModel("changeModel");
 
@@ -1208,86 +1511,35 @@ sap.ui.define(
                 aBackendItems = aBackendItems.filter(function (oItem) {
                     return (
                         oItem &&
-                        (oItem.BillOfMaterialComponent ||
+                        (
+                            oItem.BillOfMaterialComponent ||
+                            oItem.billOfMaterialComponent ||
                             oItem.BillOfMaterialItemNumber ||
-                            oItem.BillOfMaterialItemNodeNumber)
+                            oItem.billOfMaterialItemNumber ||
+                            oItem.BillOfMaterialItemNodeNumber ||
+                            oItem.billOfMaterialItemNodeNumber
+                        )
                     );
                 });
 
                 aBackendItems.sort(function (a, b) {
                     return (
-                        Number(a.BillOfMaterialItemNumber || 0) -
-                        Number(b.BillOfMaterialItemNumber || 0)
+                        Number(a.BillOfMaterialItemNumber || a.billOfMaterialItemNumber || 0) -
+                        Number(b.BillOfMaterialItemNumber || b.billOfMaterialItemNumber || 0)
                     );
                 });
 
                 return this._normalizeFetchedChangeItems(aBackendItems);
             },
 
-            _fillChangeModeComponentDetails: async function () {
-                var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-                var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
-
-                var oItemModel = this.getOwnerComponent().getModel("itemModel");
-                var aItems = oItemModel ? oItemModel.getProperty("/items") || [] : [];
-
-                if (!sPlant || !aItems.length) {
-                    return;
-                }
-
-                var oODataModel = this.getOwnerComponent().getModel();
-
-                for (var i = 0; i < aItems.length; i++) {
-                    var oItem = aItems[i];
-
-                    if (
-                        !oItem.component ||
-                        oItem.rowStatus === Constants.ROW_STATUS.DELETED
-                    ) {
-                        continue;
-                    }
-
-                    var sExistingSortString = this._cleanSortString(
-                        oItem.sortStringValue || ""
-                    );
-
-                    var sComponent = await this._resolveBackendComponent(
-                        oItem.component,
-                        sPlant
-                    );
-
-                    var oResult = await ItemScreenService.checkComponentPlantExtension(
-                        oODataModel,
-                        sComponent,
-                        sPlant
-                    );
-
-                    if (oResult.valid) {
-                        oItem.component = this._toBackendMaterial(
-                            oResult.component || sComponent
-                        );
-
-                        if (!oItem.description) {
-                            oItem.description = oResult.description || "";
-                        }
-
-                        if (!oItem.uom) {
-                            oItem.uom = oResult.uom || "";
-                        }
-                    }
-
-                    oItem.sortStringValue = sExistingSortString;
-                }
-
-                ItemModel.setItems(oItemModel, aItems);
-            },
-
             _normalizeFetchedChangeItems: function (aFetchedItems) {
                 return (aFetchedItems || []).map(
                     function (oItem, iIndex) {
                         var oRow = Object.assign({}, oItem);
+                        var sBackendSortString = this._getRealBackendSortString(oItem);
 
-                        oRow.sortStringValue = this._getRealBackendSortString(oItem);
+                        oRow.sortString = sBackendSortString;
+                        oRow.sortStringValue = sBackendSortString;
 
                         if (
                             this._cleanSortString(oRow.sortStringValue) ===
@@ -1299,6 +1551,7 @@ sap.ui.define(
                                 ""
                             )
                         ) {
+                            oRow.sortString = "";
                             oRow.sortStringValue = "";
                         }
 
@@ -1320,25 +1573,32 @@ sap.ui.define(
                             oRow.description ||
                             oItem.BOMItemDescription ||
                             oItem.bomItemDescription ||
+                            oItem.bomitemdescription ||
+                            oItem.BOMITEMDESCRIPTION ||
                             oItem.ProductDescription ||
                             oItem.productDescription ||
+                            oItem.productdescription ||
+                            oItem.PRODUCTDESCRIPTION ||
                             oItem.ComponentDescription ||
                             oItem.componentDescription ||
+                            oItem.componentdescription ||
+                            oItem.COMPONENTDESCRIPTION ||
                             oItem.ItemText ||
                             oItem.itemText ||
+                            oItem.itemtext ||
                             "";
 
                         oRow.quantity =
                             oRow.quantity ||
                             (
                                 oItem.BillOfMaterialItemQuantity !== undefined &&
-                                    oItem.BillOfMaterialItemQuantity !== null
+                                oItem.BillOfMaterialItemQuantity !== null
                                     ? String(oItem.BillOfMaterialItemQuantity)
                                     : ""
                             ) ||
                             (
                                 oItem.billOfMaterialItemQuantity !== undefined &&
-                                    oItem.billOfMaterialItemQuantity !== null
+                                oItem.billOfMaterialItemQuantity !== null
                                     ? String(oItem.billOfMaterialItemQuantity)
                                     : ""
                             );
@@ -1427,7 +1687,7 @@ sap.ui.define(
 
                         oRow.isProductionRelevant =
                             oItem.IsProductionRelevant === undefined &&
-                                oItem.isProductionRelevant === undefined
+                            oItem.isProductionRelevant === undefined
                                 ? true
                                 : !!(oItem.IsProductionRelevant || oItem.isProductionRelevant);
 
@@ -1598,50 +1858,92 @@ sap.ui.define(
             },
 
             _toBackendMaterial: function (sMaterial) {
-                sMaterial = this._normalizeMaterialInput(sMaterial);
-
-                if (/^\d+$/.test(sMaterial) && sMaterial.length < 18) {
-                    return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
-                }
-
-                return sMaterial;
+                return String(this._normalizeMaterialInput(sMaterial) || "")
+                    .trim()
+                    .toUpperCase();
             },
 
             _cleanSortString: function (sSortString) {
                 return String(sSortString || "").trim().toUpperCase();
             },
 
-            _isBackendActionSuccess: function (oResponse) {
-                if (!oResponse) {
+            _isBulkBackendActionSuccess: function (oResponse) {
+                var aResults = this._normalizeBulkActionResponse(oResponse);
+
+                if (!aResults.length) {
                     return false;
                 }
 
-                if (oResponse.Success === true || oResponse.success === true) {
-                    return true;
-                }
-
-                if (
-                    String(oResponse.Status || oResponse.status || "").toUpperCase() ===
-                    "SUCCESS"
-                ) {
-                    return true;
-                }
-
-                return false;
+                return aResults.every(function (oResult) {
+                    return (
+                        oResult.Success === true ||
+                        oResult.success === true ||
+                        String(oResult.Status || oResult.status || "").toUpperCase() === "SUCCESS"
+                    );
+                });
             },
 
-            _getBackendActionMessage: function (oResponse) {
-                if (!oResponse) {
-                    return "No response returned from backend.";
+            _getBulkBackendActionMessage: function (oResponse) {
+                var aResults = this._normalizeBulkActionResponse(oResponse);
+                var aMessages = [];
+
+                if (!aResults.length) {
+                    return "No response returned from ChangeBOMItems.";
                 }
 
-                return (
-                    oResponse.Message ||
-                    oResponse.message ||
-                    oResponse.ApiResponse ||
-                    oResponse.api_response ||
-                    "Backend action completed."
-                );
+                aResults.forEach(function (oResult, iIndex) {
+                    var sStatus = String(oResult.Status || oResult.status || "").toUpperCase();
+                    var bSuccess =
+                        oResult.Success === true ||
+                        oResult.success === true ||
+                        sStatus === "SUCCESS";
+
+                    var sMessage =
+                        oResult.Message ||
+                        oResult.message ||
+                        oResult.ApiResponse ||
+                        oResult.apiresponse ||
+                        oResult.api_response ||
+                        "";
+
+                    if (!bSuccess) {
+                        aMessages.push("Item " + (iIndex + 1) + ": " + sMessage);
+                    }
+                });
+
+                if (aMessages.length) {
+                    return aMessages.join("\n");
+                }
+
+                return "BOM item changes failed.";
+            },
+
+            _normalizeBulkActionResponse: function (oResponse) {
+                if (!oResponse) {
+                    return [];
+                }
+
+                if (Array.isArray(oResponse)) {
+                    return oResponse;
+                }
+
+                if (Array.isArray(oResponse.value)) {
+                    return oResponse.value;
+                }
+
+                if (Array.isArray(oResponse.results)) {
+                    return oResponse.results;
+                }
+
+                if (Array.isArray(oResponse.Result)) {
+                    return oResponse.Result;
+                }
+
+                if (Array.isArray(oResponse.result)) {
+                    return oResponse.result;
+                }
+
+                return [oResponse];
             },
 
             _escapeODataValue: function (sValue) {
@@ -1686,7 +1988,6 @@ sap.ui.define(
                 oResultModel.setProperty("/Message", sMessage || "Success.");
                 oResultModel.setProperty("/MessageType", "Success");
                 oResultModel.setProperty("/ShowMessage", true);
-
                 oResultModel.setProperty("/CanSave", false);
                 oResultModel.setProperty("/Editable", false);
             },

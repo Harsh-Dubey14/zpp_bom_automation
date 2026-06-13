@@ -45,7 +45,24 @@ sap.ui.define(
           Constants.ACTIONS.CHANGE_BOM_ITEM,
           oPayload
         );
-      }
+      },
+prepareCreateBOM: function (oModel, oPayload) {
+  return ODataActionHelper.postAction(
+    oModel,
+    Constants.ACTIONS.PREPARE_CREATE_BOM,
+    oPayload
+  );
+},
+   changeBomItems: function (oModel, aPayloads) {
+  return ODataActionHelper.postAction(
+    oModel,
+    Constants.ACTIONS.CHANGE_BOM_ITEMS,
+    {
+      RequestId: "REQ_" + Date.now(),
+      ItemsJson: JSON.stringify(aPayloads || [])
+    }
+  );
+}
     };
   }
 );

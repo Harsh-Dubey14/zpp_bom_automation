@@ -57,25 +57,33 @@ sap.ui.define([], function () {
       CHANGE_BOM_ITEM:
         "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ChangeBOMItem",
 
-      CREATE_BOM: "/BomCreate"
+      CHANGE_BOM_ITEMS:
+        "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.ChangeBOMItems",
+
+      CREATE_BOM: "/BomCreate",
+      PREPARE_CREATE_BOM:
+  "/BomApi/com.sap.gateway.srvd_a2x.zui_bom_automation.v0001.PrepareCreateBOM"
     },
 
     ENTITY_SETS: {
       BOM_CHANGE_READ: "/BomChangeRead"
     },
 
-    VALUE_HELP: {
-      MATERIAL_PATH: "/product_plant_vh",
-      MATERIAL_SELECT: ["Product", "ProductDescription"],
+  VALUE_HELP: {
+  MATERIAL_PATH: "/product_plant_vh",
+  MATERIAL_SELECT: ["Product", "ProductDescription"],
 
-      PLANT_PATH: "/plant_vh",
-      PLANT_SELECT: ["Plant", "PlantName"],
+  PLANT_PATH: "/plant_vh",
+  PLANT_SELECT: ["Plant", "PlantName"],
 
-      COMPONENT_PATH: "/plant_component_vh",
-      COMPONENT_SELECT: ["component", "ProductDescription", "uom"],
+  COMPONENT_PATH: "/plant_component_vh",
+  COMPONENT_SELECT: ["component", "ProductDescription", "uom"],
 
-      SORT_STRING_PATH: "/sort_string",
-      SORT_STRING_SELECT: ["Product", "Style", "Zcomb", "ColorName", "sizes"]
-    }
+  UOM_PATH: "/produtuom",
+  UOM_SELECT: ["Product", "AlternativeUnit", "BaseUnit"],
+
+  SORT_STRING_PATH: "/sort_string",
+  SORT_STRING_SELECT: ["Product", "Style", "Zcomb", "ColorName", "sizes"]
+}
   };
 });
