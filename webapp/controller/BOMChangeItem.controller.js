@@ -54,13 +54,13 @@ sap.ui.define(
                 this._oCurrentSortStringContext = null;
                 this._oCurrentUomContext = null;
                 this._oUomVHDialog = null;
+                this._bPostInProgress = false;
 
                 this.getOwnerComponent()
                     .getRouter()
                     .getRoute(Constants.ROUTES.CHANGE_ITEM)
                     .attachPatternMatched(this._onRouteMatched, this);
             },
-
             _onRouteMatched: async function () {
                 var oChangeModel = this.getOwnerComponent().getModel("changeModel");
 
@@ -1084,7 +1084,22 @@ sap.ui.define(
             },
 
             onPostChanges: async function () {
-                await this._saveChangeBomItems();
+                var oResultModel = this.getView().getModel("resultModel");
+
+                if (this._bPostInProgress) {
+                    MessageToast.show("Posting is already in progress. Please wait.");
+                    return;
+                }
+
+                this._bPostInProgress = true;
+
+                this._setResultBusy(oResultModel, "Posting BOM changes...");
+
+                try {
+                    await this._saveChangeBomItems();
+                } finally {
+                    this._bPostInProgress = false;
+                }
             },
 
             _saveChangeBomItems: async function () {
@@ -1094,18 +1109,19 @@ sap.ui.define(
                     var oValidation = await this._validateChangeRowsBeforeSave();
 
                     if (!oValidation.valid) {
-                        MessageBox.error(oValidation.message);
+                        this._setResultError(oResultModel, oValidation.message);
+                        this._showLimitedErrorPopup(oValidation.message);
                         return;
                     }
 
                     var aPayloads = this._buildChangeBomPayloads();
 
                     if (!aPayloads.length) {
+                        this._setResultInitial(oResultModel);
                         MessageToast.show("No changes found to post.");
                         return;
                     }
 
-                    this._setResultBusy(oResultModel, "Posting BOM changes...");
                     BusyIndicator.show(0);
 
                     var oResponse = await BomActionService.changeBomItems(
@@ -1131,7 +1147,7 @@ sap.ui.define(
                     var sErrorText = this._getErrorText(oError);
 
                     this._setResultError(oResultModel, sErrorText);
-                    MessageBox.error(sErrorText);
+                    this._showLimitedErrorPopup(sErrorText);
                 } finally {
                     BusyIndicator.hide();
                 }
@@ -1259,9 +1275,15 @@ sap.ui.define(
 
                     oItem.description = oCheckResult.description || oItem.description || "";
 
-                    if (oCheckResult.uom) {
+                    /*
+                     * Do not overwrite UOM selected from value help.
+                     * Only fill backend/default UOM if row UOM is still blank.
+                     */
+                    if (!oItem.uom && oCheckResult.uom) {
                         oItem.uom = oCheckResult.uom;
                     }
+
+                    oItem.uom = String(oItem.uom || "").trim().toUpperCase();
 
                     if (!oItem.uom) {
                         return {
@@ -1592,13 +1614,13 @@ sap.ui.define(
                             oRow.quantity ||
                             (
                                 oItem.BillOfMaterialItemQuantity !== undefined &&
-                                oItem.BillOfMaterialItemQuantity !== null
+                                    oItem.BillOfMaterialItemQuantity !== null
                                     ? String(oItem.BillOfMaterialItemQuantity)
                                     : ""
                             ) ||
                             (
                                 oItem.billOfMaterialItemQuantity !== undefined &&
-                                oItem.billOfMaterialItemQuantity !== null
+                                    oItem.billOfMaterialItemQuantity !== null
                                     ? String(oItem.billOfMaterialItemQuantity)
                                     : ""
                             );
@@ -1687,7 +1709,7 @@ sap.ui.define(
 
                         oRow.isProductionRelevant =
                             oItem.IsProductionRelevant === undefined &&
-                            oItem.isProductionRelevant === undefined
+                                oItem.isProductionRelevant === undefined
                                 ? true
                                 : !!(oItem.IsProductionRelevant || oItem.isProductionRelevant);
 
@@ -1958,12 +1980,13 @@ sap.ui.define(
                 oResultModel.setProperty("/Status", "READY");
                 oResultModel.setProperty("/StatusState", "Information");
                 oResultModel.setProperty("/Message", "Ready to post BOM changes.");
+                oResultModel.setProperty("/FullMessage", "");
+                oResultModel.setProperty("/ShowMore", false);
                 oResultModel.setProperty("/MessageType", "Information");
                 oResultModel.setProperty("/ShowMessage", false);
                 oResultModel.setProperty("/CanSave", true);
                 oResultModel.setProperty("/Editable", true);
             },
-
             _setResultBusy: function (oResultModel, sMessage) {
                 if (!oResultModel) {
                     return;
@@ -1972,6 +1995,8 @@ sap.ui.define(
                 oResultModel.setProperty("/Status", "PROCESSING");
                 oResultModel.setProperty("/StatusState", "Warning");
                 oResultModel.setProperty("/Message", sMessage || "Processing...");
+                oResultModel.setProperty("/FullMessage", sMessage || "Processing...");
+                oResultModel.setProperty("/ShowMore", false);
                 oResultModel.setProperty("/MessageType", "Information");
                 oResultModel.setProperty("/ShowMessage", true);
                 oResultModel.setProperty("/CanSave", false);
@@ -1986,6 +2011,8 @@ sap.ui.define(
                 oResultModel.setProperty("/Status", "SUCCESS");
                 oResultModel.setProperty("/StatusState", "Success");
                 oResultModel.setProperty("/Message", sMessage || "Success.");
+                oResultModel.setProperty("/FullMessage", sMessage || "Success.");
+                oResultModel.setProperty("/ShowMore", false);
                 oResultModel.setProperty("/MessageType", "Success");
                 oResultModel.setProperty("/ShowMessage", true);
                 oResultModel.setProperty("/CanSave", false);
@@ -1997,15 +2024,75 @@ sap.ui.define(
                     return;
                 }
 
+                var oMessageData = this._getLimitedMessageData(sMessage);
+
                 oResultModel.setProperty("/Status", "ERROR");
                 oResultModel.setProperty("/StatusState", "Error");
-                oResultModel.setProperty("/Message", sMessage || "Error occurred.");
+                oResultModel.setProperty("/Message", oMessageData.shortMessage);
+                oResultModel.setProperty("/FullMessage", oMessageData.fullMessage);
+                oResultModel.setProperty("/ShowMore", oMessageData.showMore);
                 oResultModel.setProperty("/MessageType", "Error");
                 oResultModel.setProperty("/ShowMessage", true);
                 oResultModel.setProperty("/CanSave", true);
                 oResultModel.setProperty("/Editable", true);
             },
+         _getLimitedMessageData: function (sMessage) {
+    var sFullMessage = String(sMessage || "");
+    var iMaxChars = 250;
+    var iMaxLines = 2;
+    var aLines = sFullMessage.split(/\r?\n/);
+    var bTooLong = sFullMessage.length > iMaxChars || aLines.length > iMaxLines;
+    var sShortMessage;
 
+    if (!bTooLong) {
+        return {
+            shortMessage: sFullMessage,
+            fullMessage: sFullMessage,
+            showMore: false
+        };
+    }
+
+    sShortMessage = aLines.slice(0, iMaxLines).join("\n");
+
+    if (sShortMessage.length > iMaxChars) {
+        sShortMessage = sShortMessage.substring(0, iMaxChars);
+    }
+
+    sShortMessage += "\n\nMessage is too long. Click Show More to view full details.";
+
+    return {
+        shortMessage: sShortMessage,
+        fullMessage: sFullMessage,
+        showMore: true
+    };
+},
+
+            _showLimitedErrorPopup: function (sMessage) {
+                var oMessageData = this._getLimitedMessageData(sMessage);
+
+                MessageBox.error(oMessageData.shortMessage);
+            },
+
+            onShowMoreMessage: function () {
+                var oResultModel = this.getView().getModel("resultModel");
+                var sFullMessage = "";
+
+                if (oResultModel) {
+                    sFullMessage =
+                        oResultModel.getProperty("/FullMessage") ||
+                        oResultModel.getProperty("/Message") ||
+                        "";
+                }
+
+                if (!sFullMessage) {
+                    MessageToast.show("No details available.");
+                    return;
+                }
+
+                MessageBox.error(sFullMessage, {
+                    title: "Full Error Details"
+                });
+            },
             _clearChangeBomData: function () {
                 ItemValueHelpHelper.clearSortStringCache(this);
 
@@ -2026,6 +2113,8 @@ sap.ui.define(
                     oChangeModel.setProperty("/FetchedItems", []);
                     oChangeModel.setProperty("/HeaderData", null);
                     oChangeModel.setProperty("/Message", "");
+                    oChangeModel.setProperty("/FullMessage", "");
+                    oChangeModel.setProperty("/ShowMore", false);
                     oChangeModel.setProperty("/ShowMessage", false);
                 }
             },

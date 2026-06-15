@@ -103,10 +103,21 @@
 
                             <VBox class="bomFieldBox">
                                 <Label text="Message" />
+
                                 <Text
                                     text="{resultModel>/Message}"
                                     wrapping="true"
                                     width="20rem"
+                                />
+
+                                <Button
+                                    id="btnShowMoreMessage"
+                                    text="Show More"
+                                    type="Transparent"
+                                    icon="sap-icon://detail-view"
+                                    press=".onShowMoreMessage"
+                                    visible="{resultModel>/ShowMore}"
+                                    class="sapUiTinyMarginTop"
                                 />
                             </VBox>
                         </VBox>

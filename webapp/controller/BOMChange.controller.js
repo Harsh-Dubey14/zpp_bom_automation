@@ -1,5 +1,4 @@
 /* global Promise */
-/* eslint-disable max-params */
 
 sap.ui.define(
   [
@@ -29,22 +28,22 @@ sap.ui.define(
     "use strict";
 
     return Controller.extend("zppbomautomation.controller.BOMChange", {
-      onInit: function () {
-        this._initChangeModel();
-        this._initSuggestionModels();
-        this._warmUpValueHelpCache();
+    onInit: function () {
+  this._initChangeModel();
+  this._initSuggestionModels();
+  this._warmUpValueHelpCache();
 
-        this.getOwnerComponent()
-          .getRouter()
-          .getRoute(Constants.ROUTES.CHANGE)
-          .attachPatternMatched(this._onRouteMatched, this);
-      },
+  this.getOwnerComponent()
+    .getRouter()
+    .getRoute(Constants.ROUTES.CHANGE)
+    .attachPatternMatched(this._onRouteMatched, this);
+},
 
       _onRouteMatched: function () {
-        this._initChangeModel();
-        this._initSuggestionModels();
-        this._warmUpValueHelpCache();
-      },
+  this._initChangeModel();
+  this._initSuggestionModels();
+  this._warmUpValueHelpCache();
+},
 
       _initChangeModel: function () {
         var oChangeModel = new JSONModel(this._getDefaultChangeData());
@@ -55,9 +54,9 @@ sap.ui.define(
 
       _getDefaultChangeData: function () {
         return {
-          Material: "",
-          BackendMaterial: "",
-          Plant: "",
+         Material: "",
+BackendMaterial: "",
+Plant: "",
           BomUsage: Constants.BOM_USAGE || "1",
           AltBom: "",
 
@@ -103,61 +102,61 @@ sap.ui.define(
         this._clearMessage();
       },
 
-      onGetBOMByMaterial: async function () {
-        var oChangeModel = this.getView().getModel("changeModel");
+     onGetBOMByMaterial: async function () {
+  var oChangeModel = this.getView().getModel("changeModel");
 
-        if (!oChangeModel) {
-          MessageBox.error("Change model is missing.");
-          return;
-        }
+  if (!oChangeModel) {
+    MessageBox.error("Change model is missing.");
+    return;
+  }
 
-        var oData = oChangeModel.getData();
+  var oData = oChangeModel.getData();
 
-        if (!oData.Material || !oData.Plant || !oData.AltBom) {
-          MessageBox.error("Please enter Material, Plant and Alternative BOM.");
-          return;
-        }
+  if (!oData.Material || !oData.Plant || !oData.AltBom) {
+    MessageBox.error("Please enter Material, Plant and Alternative BOM.");
+    return;
+  }
 
-        try {
-          BusyIndicator.show(0);
+  try {
+    BusyIndicator.show(0);
 
-          var sResolvedProduct =
-            await this._resolveTypedMaterialOrDescriptionToProduct(
-              oData.Material,
-              "/Material"
-            );
+    var sResolvedProduct =
+      await this._resolveTypedMaterialOrDescriptionToProduct(
+        oData.Material,
+        "/Material"
+      );
 
-          oData = oChangeModel.getData();
+    oData = oChangeModel.getData();
 
-          if (!sResolvedProduct || !this._looksLikeMaterialCode(oData.Material)) {
-            MessageBox.error("Please select or enter a valid Product.");
-            return;
-          }
+    if (!sResolvedProduct || !this._looksLikeMaterialCode(oData.Material)) {
+      MessageBox.error("Please select or enter a valid Product.");
+      return;
+    }
 
-          var sBackendMaterial = this._getBackendMaterialFromChangeModel();
-          var sPlant = this._toUpperTrim(oData.Plant);
+    var sBackendMaterial = this._getBackendMaterialFromChangeModel();
+    var sPlant = this._toUpperTrim(oData.Plant);
 
-          oChangeModel.setProperty("/Material", this._toDisplayMaterial(oData.Material));
-          oChangeModel.setProperty("/Plant", sPlant);
-          oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+    oChangeModel.setProperty("/Material", this._toDisplayMaterial(oData.Material));
+    oChangeModel.setProperty("/Plant", sPlant);
+    oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-          await this._fetchBomChangeItems(
-            {
-              searchMode: Constants.SEARCH_MODE.MATERIAL,
-              Material: sBackendMaterial,
-              Plant: sPlant,
-              BillOfMaterialVariantUsage: Constants.BOM_USAGE || "1",
-              BillOfMaterialVariant: String(oData.AltBom || "").trim()
-            },
-            true
-          );
-        } catch (oError) {
-          this._setMessage(this._getErrorText(oError), "Error");
-          MessageBox.error(this._getErrorText(oError));
-        } finally {
-          BusyIndicator.hide();
-        }
+    await this._fetchBomChangeItems(
+      {
+        searchMode: Constants.SEARCH_MODE.MATERIAL,
+        Material: sBackendMaterial,
+        Plant: sPlant,
+        BillOfMaterialVariantUsage: Constants.BOM_USAGE || "1",
+        BillOfMaterialVariant: String(oData.AltBom || "").trim()
       },
+      true
+    );
+  } catch (oError) {
+    this._setMessage(this._getErrorText(oError), "Error");
+    MessageBox.error(this._getErrorText(oError));
+  } finally {
+    BusyIndicator.hide();
+  }
+},
 
       onGetBOMByNumber: async function () {
         var oChangeModel = this.getView().getModel("changeModel");
@@ -200,61 +199,31 @@ sap.ui.define(
         var oModel = this.getOwnerComponent().getModel();
         var oChangeModel = this.getView().getModel("changeModel");
 
-        this._setMessage("Fetching BOM details...", "Information");
+        this._setMessage("Fetching BOM components...", "Information");
 
-        var aBackendRows = await this._readBomChangeItems(oModel, oRequest);
+        var aItems = await this._readBomChangeItems(oModel, oRequest);
 
-        aBackendRows = aBackendRows || [];
-
-        if (!aBackendRows.length) {
-          oChangeModel.setProperty("/CanContinue", false);
-          oChangeModel.setProperty("/FetchedItems", []);
-          oChangeModel.setProperty("/HeaderData", null);
-
-          throw {
-            message: "No BOM found for the entered details."
-          };
-        }
-
-        var oFirstRow = aBackendRows[0] || {};
-        var bHeaderOnly =
-          String(oFirstRow.RowStatus || oFirstRow.rowstatus || oFirstRow.rowStatus || "")
-            .toUpperCase() === "HEADER";
-
-        var bError =
-          String(oFirstRow.Status || oFirstRow.status || "").toUpperCase() === "ERROR" ||
-          String(oFirstRow.RowStatus || oFirstRow.rowstatus || oFirstRow.rowStatus || "")
-            .toUpperCase() === "ERROR";
-
-        if (bError) {
-          oChangeModel.setProperty("/CanContinue", false);
-          oChangeModel.setProperty("/FetchedItems", []);
-          oChangeModel.setProperty("/HeaderData", null);
-
-          throw {
-            message:
-              oFirstRow.Message ||
-              oFirstRow.message ||
-              "No BOM found for the entered details."
-          };
-        }
-
-        var aItemRows = aBackendRows.filter(function (oItem) {
+        aItems = aItems.filter(function (oItem) {
           return (
             oItem &&
-            (
-              oItem.BillOfMaterialComponent ||
-              oItem.billOfMaterialComponent ||
+            (oItem.BillOfMaterialComponent ||
               oItem.BillOfMaterialItemNumber ||
-              oItem.billOfMaterialItemNumber ||
-              oItem.BillOfMaterialItemNodeNumber ||
-              oItem.billOfMaterialItemNodeNumber
-            )
+              oItem.BillOfMaterialItemNodeNumber)
           );
         });
 
-        var aRows = this._convertBomChangeItemsToRows(aItemRows);
-        var oHeaderData = this._buildChangeHeaderData(oFirstRow, oRequest);
+        if (!aItems.length) {
+          oChangeModel.setProperty("/CanContinue", false);
+          oChangeModel.setProperty("/FetchedItems", []);
+          oChangeModel.setProperty("/HeaderData", null);
+
+          throw {
+            message: "No BOM components found for the entered details."
+          };
+        }
+
+        var aRows = this._convertBomChangeItemsToRows(aItems);
+        var oHeaderData = this._buildChangeHeaderData(aItems[0], oRequest);
 
         oChangeModel.setProperty("/FetchedItems", aRows);
         oChangeModel.setProperty("/HeaderData", oHeaderData);
@@ -263,21 +232,12 @@ sap.ui.define(
 
         this.getOwnerComponent().setModel(oChangeModel, "changeModel");
 
-        if (bHeaderOnly || !aRows.length) {
-          this._setMessage(
-            "BOM header fetched successfully. No BOM items found.",
-            "Success"
-          );
+        this._setMessage(
+          aRows.length + " BOM component(s) fetched successfully.",
+          "Success"
+        );
 
-          MessageToast.show("BOM header fetched. No items found.");
-        } else {
-          this._setMessage(
-            aRows.length + " BOM component(s) fetched successfully.",
-            "Success"
-          );
-
-          MessageToast.show(aRows.length + " BOM component(s) fetched.");
-        }
+        MessageToast.show(aRows.length + " BOM component(s) fetched.");
 
         if (bAutoNavigate) {
           this.onContinue();
@@ -296,29 +256,29 @@ sap.ui.define(
           );
           aFilters.push(
             "BillOfMaterialVariantUsage eq '" +
-            this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
-            "'"
+              this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
+              "'"
           );
           aFilters.push(
             "BillOfMaterialVariant eq '" +
-            this._escapeODataValue(oRequest.BillOfMaterialVariant) +
-            "'"
+              this._escapeODataValue(oRequest.BillOfMaterialVariant) +
+              "'"
           );
         } else {
           aFilters.push(
             "BillOfMaterial eq '" +
-            this._escapeODataValue(oRequest.BillOfMaterial) +
-            "'"
+              this._escapeODataValue(oRequest.BillOfMaterial) +
+              "'"
           );
           aFilters.push(
             "BillOfMaterialVariantUsage eq '" +
-            this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
-            "'"
+              this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
+              "'"
           );
           aFilters.push(
             "BillOfMaterialVariant eq '" +
-            this._escapeODataValue(oRequest.BillOfMaterialVariant) +
-            "'"
+              this._escapeODataValue(oRequest.BillOfMaterialVariant) +
+              "'"
           );
         }
 
@@ -340,366 +300,236 @@ sap.ui.define(
           });
       },
 
-     _convertBomChangeItemsToRows: function (aBackendItems) {
-  var that = this;
+      _convertBomChangeItemsToRows: function (aBackendItems) {
+        var that = this;
 
-  aBackendItems = aBackendItems || [];
+        aBackendItems = aBackendItems || [];
 
-  aBackendItems.sort(function (a, b) {
-    return (
-      Number(a.BillOfMaterialItemNumber || 0) -
-      Number(b.BillOfMaterialItemNumber || 0)
-    );
-  });
+        aBackendItems.sort(function (a, b) {
+          return (
+            Number(a.BillOfMaterialItemNumber || 0) -
+            Number(b.BillOfMaterialItemNumber || 0)
+          );
+        });
 
-  return aBackendItems.map(function (oItem, iIndex) {
-    var sAlternativeText =
-      oItem.BOMAlternativeText ||
-      oItem.bomAlternativeText ||
-      oItem.BOMALTERNATIVETEXT ||
-      oItem.HeaderText ||
-      oItem.headerText ||
-      "";
+        return aBackendItems.map(function (oItem, iIndex) {
+          return {
+            item:
+              oItem.BillOfMaterialItemNumber ||
+              FormatterHelper.formatItemNumber(iIndex + 1),
 
-    return {
-      item:
-        oItem.BillOfMaterialItemNumber ||
-        oItem.billOfMaterialItemNumber ||
-        FormatterHelper.formatItemNumber(iIndex + 1),
+            component: FormatterHelper.formatComponentForDisplay(
+              oItem.BillOfMaterialComponent || oItem.Component || ""
+            ),
 
-      component: FormatterHelper.formatComponentForDisplay(
-        oItem.BillOfMaterialComponent ||
-        oItem.billOfMaterialComponent ||
-        oItem.Component ||
-        oItem.component ||
-        ""
-      ),
+            description:
+              oItem.BOMItemDescription ||
+              oItem.ProductDescription ||
+              oItem.ComponentDescription ||
+              oItem.ItemText ||
+              "",
 
-     description:
-  oItem.BOMItemDescription ||
-  oItem.bomItemDescription ||
-  oItem.bomitemdescription ||
-  oItem.BOMITEMDESCRIPTION ||
-  oItem.ProductDescription ||
-  oItem.productDescription ||
-  oItem.productdescription ||
-  oItem.PRODUCTDESCRIPTION ||
-  oItem.ComponentDescription ||
-  oItem.componentDescription ||
-  oItem.componentdescription ||
-  oItem.COMPONENTDESCRIPTION ||
-  oItem.ItemText ||
-  oItem.itemText ||
-  oItem.itemtext ||
-  "",
-
-      quantity:
-        oItem.BillOfMaterialItemQuantity !== undefined &&
-        oItem.BillOfMaterialItemQuantity !== null
-          ? FormatterHelper.formatQuantityForDisplay(
-              oItem.BillOfMaterialItemQuantity
-            )
-          : (
-              oItem.billOfMaterialItemQuantity !== undefined &&
-              oItem.billOfMaterialItemQuantity !== null
+            quantity:
+              oItem.BillOfMaterialItemQuantity !== undefined &&
+              oItem.BillOfMaterialItemQuantity !== null
                 ? FormatterHelper.formatQuantityForDisplay(
-                    oItem.billOfMaterialItemQuantity
+                    oItem.BillOfMaterialItemQuantity
                   )
-                : ""
+                : "",
+
+            uom: oItem.BillOfMaterialItemUnit || oItem.Uom || "",
+
+            sortString:
+              that._getRealBackendSortString(oItem) ||
+              "",
+
+            sortStringValue:
+              that._getRealBackendSortString(oItem) ||
+              "",
+
+            category:
+              oItem.BillOfMaterialItemCategory ||
+              Constants.ITEM_CATEGORY,
+
+            rowStatus: Constants.ROW_STATUS.EXISTING,
+            changeMode: "",
+            isNew: false,
+            isChanged: false,
+            isDeleted: false,
+
+            billOfMaterial: oItem.BillOfMaterial || "",
+            billOfMaterialCategory:
+              oItem.BillOfMaterialCategory ||
+              Constants.DEFAULTS.BILL_OF_MATERIAL_CATEGORY ||
+              "M",
+            billOfMaterialVariant: oItem.BillOfMaterialVariant || "",
+            billOfMaterialVariantUsage:
+              oItem.BillOfMaterialVariantUsage ||
+              Constants.BOM_USAGE,
+            billOfMaterialVersion: oItem.BillOfMaterialVersion || "",
+            headerChangeDocument: oItem.HeaderChangeDocument || "",
+
+            material: oItem.Material || "",
+            plant: oItem.Plant || "",
+
+            bomHeaderQuantityInBaseUnit:
+              oItem.BOMHeaderQuantityInBaseUnit !== undefined &&
+              oItem.BOMHeaderQuantityInBaseUnit !== null
+                ? oItem.BOMHeaderQuantityInBaseUnit
+                : "",
+
+            BOMHeaderQuantityInBaseUnit:
+              oItem.BOMHeaderQuantityInBaseUnit !== undefined &&
+              oItem.BOMHeaderQuantityInBaseUnit !== null
+                ? oItem.BOMHeaderQuantityInBaseUnit
+                : "",
+
+            bomHeaderBaseUnit:
+              oItem.BOMHeaderBaseUnit ||
+              "",
+
+            BOMHeaderBaseUnit:
+              oItem.BOMHeaderBaseUnit ||
+              "",
+
+            headerValidityStartDate:
+              oItem.HeaderValidityStartDate ||
+              "",
+
+            HeaderValidityStartDate:
+              oItem.HeaderValidityStartDate ||
+              "",
+
+            bomVersionStatus:
+              oItem.BOMVersionStatus ||
+              "",
+
+            BOMVersionStatus:
+              oItem.BOMVersionStatus ||
+              "",
+
+            billOfMaterialItemNodeNumber:
+              oItem.BillOfMaterialItemNodeNumber || "",
+
+            originalItemNumber:
+              oItem.BillOfMaterialItemNumber || "",
+
+            isProductionRelevant:
+              oItem.IsProductionRelevant === undefined
+                ? true
+                : !!oItem.IsProductionRelevant
+          };
+        });
+      },
+
+      _buildChangeHeaderData: function (oFirstItem, oRequest) {
+        oFirstItem = oFirstItem || {};
+        oRequest = oRequest || {};
+
+        return {
+          AppMode: Constants.APP_MODE.CHANGE,
+          IsChangeMode: true,
+
+          Material:
+            oFirstItem.Material ||
+            oRequest.Material ||
+            "",
+
+          Plant:
+            oFirstItem.Plant ||
+            oRequest.Plant ||
+            "",
+
+          BomUsage:
+            oFirstItem.BillOfMaterialVariantUsage ||
+            oRequest.BillOfMaterialVariantUsage ||
+            Constants.BOM_USAGE,
+
+          AltBom:
+            oFirstItem.BillOfMaterialVariant ||
+            oRequest.BillOfMaterialVariant ||
+            "",
+
+          BillOfMaterial:
+            oFirstItem.BillOfMaterial ||
+            oRequest.BillOfMaterial ||
+            "",
+
+          BillOfMaterialCategory:
+            oFirstItem.BillOfMaterialCategory ||
+            Constants.DEFAULTS.BILL_OF_MATERIAL_CATEGORY ||
+            "M",
+
+          BillOfMaterialVariant:
+            oFirstItem.BillOfMaterialVariant ||
+            oRequest.BillOfMaterialVariant ||
+            "",
+
+          BillOfMaterialVariantUsage:
+            oFirstItem.BillOfMaterialVariantUsage ||
+            oRequest.BillOfMaterialVariantUsage ||
+            Constants.BOM_USAGE,
+
+          BillOfMaterialVersion:
+            oFirstItem.BillOfMaterialVersion ||
+            "",
+
+          HeaderChangeDocument:
+            oFirstItem.HeaderChangeDocument ||
+            "",
+
+          BaseQty:
+            oFirstItem.BOMHeaderQuantityInBaseUnit !== undefined &&
+            oFirstItem.BOMHeaderQuantityInBaseUnit !== null
+              ? String(oFirstItem.BOMHeaderQuantityInBaseUnit)
+              : oFirstItem.BaseQty || "",
+
+          BOMHeaderQuantityInBaseUnit:
+            oFirstItem.BOMHeaderQuantityInBaseUnit !== undefined &&
+            oFirstItem.BOMHeaderQuantityInBaseUnit !== null
+              ? String(oFirstItem.BOMHeaderQuantityInBaseUnit)
+              : oFirstItem.BaseQty || "",
+
+          BaseUom:
+            oFirstItem.BOMHeaderBaseUnit ||
+            oFirstItem.BaseUom ||
+            "",
+
+          BOMHeaderBaseUnit:
+            oFirstItem.BOMHeaderBaseUnit ||
+            oFirstItem.BaseUom ||
+            "",
+
+          ValidFrom:
+            this._formatDateForDisplay(
+              oFirstItem.HeaderValidityStartDate ||
+                oFirstItem.ValidFrom ||
+                ""
             ),
 
-      uom:
-        oItem.BillOfMaterialItemUnit ||
-        oItem.billOfMaterialItemUnit ||
-        oItem.Uom ||
-        oItem.uom ||
-        "",
-
-      sortString:
-        that._getRealBackendSortString(oItem) ||
-        "",
-
-      sortStringValue:
-        that._getRealBackendSortString(oItem) ||
-        "",
-
-      category:
-        oItem.BillOfMaterialItemCategory ||
-        oItem.billOfMaterialItemCategory ||
-        Constants.ITEM_CATEGORY,
-
-      rowStatus: Constants.ROW_STATUS.EXISTING,
-      changeMode: "",
-      isNew: false,
-      isChanged: false,
-      isDeleted: false,
-
-      billOfMaterial:
-        oItem.BillOfMaterial ||
-        oItem.billOfMaterial ||
-        "",
-
-      billOfMaterialCategory:
-        oItem.BillOfMaterialCategory ||
-        oItem.billOfMaterialCategory ||
-        Constants.DEFAULTS.BILL_OF_MATERIAL_CATEGORY ||
-        "M",
-
-      billOfMaterialVariant:
-        oItem.BillOfMaterialVariant ||
-        oItem.billOfMaterialVariant ||
-        "",
-
-      billOfMaterialVariantUsage:
-        oItem.BillOfMaterialVariantUsage ||
-        oItem.billOfMaterialVariantUsage ||
-        Constants.BOM_USAGE,
-
-      billOfMaterialVersion:
-        oItem.BillOfMaterialVersion ||
-        oItem.billOfMaterialVersion ||
-        "",
-
-      headerChangeDocument:
-        oItem.HeaderChangeDocument ||
-        oItem.headerChangeDocument ||
-        "",
-
-      material:
-        oItem.Material ||
-        oItem.material ||
-        "",
-
-      plant:
-        oItem.Plant ||
-        oItem.plant ||
-        "",
-
-      bomHeaderQuantityInBaseUnit:
-        oItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-        oItem.BOMHeaderQuantityInBaseUnit !== null
-          ? oItem.BOMHeaderQuantityInBaseUnit
-          : (
-              oItem.bomHeaderQuantityInBaseUnit !== undefined &&
-              oItem.bomHeaderQuantityInBaseUnit !== null
-                ? oItem.bomHeaderQuantityInBaseUnit
-                : ""
+          HeaderValidityStartDate:
+            this._formatDateForDisplay(
+              oFirstItem.HeaderValidityStartDate ||
+                oFirstItem.ValidFrom ||
+                ""
             ),
 
-      BOMHeaderQuantityInBaseUnit:
-        oItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-        oItem.BOMHeaderQuantityInBaseUnit !== null
-          ? oItem.BOMHeaderQuantityInBaseUnit
-          : (
-              oItem.bomHeaderQuantityInBaseUnit !== undefined &&
-              oItem.bomHeaderQuantityInBaseUnit !== null
-                ? oItem.bomHeaderQuantityInBaseUnit
-                : ""
-            ),
+          BomStatus:
+            oFirstItem.BOMVersionStatus ||
+            oFirstItem.BomStatus ||
+            Constants.BOM_STATUS,
 
-      bomHeaderBaseUnit:
-        oItem.BOMHeaderBaseUnit ||
-        oItem.bomHeaderBaseUnit ||
-        "",
+          BOMVersionStatus:
+            oFirstItem.BOMVersionStatus ||
+            oFirstItem.BomStatus ||
+            Constants.BOM_STATUS,
 
-      BOMHeaderBaseUnit:
-        oItem.BOMHeaderBaseUnit ||
-        oItem.bomHeaderBaseUnit ||
-        "",
-
-      headerValidityStartDate:
-        oItem.HeaderValidityStartDate ||
-        oItem.headerValidityStartDate ||
-        "",
-
-      HeaderValidityStartDate:
-        oItem.HeaderValidityStartDate ||
-        oItem.headerValidityStartDate ||
-        "",
-
-      bomVersionStatus:
-        oItem.BOMVersionStatus ||
-        oItem.bomVersionStatus ||
-        "",
-
-      BOMVersionStatus:
-        oItem.BOMVersionStatus ||
-        oItem.bomVersionStatus ||
-        "",
-
-      HeaderText: sAlternativeText,
-      headerText: sAlternativeText,
-      BOMAlternativeText: sAlternativeText,
-
-      billOfMaterialItemNodeNumber:
-        oItem.BillOfMaterialItemNodeNumber ||
-        oItem.billOfMaterialItemNodeNumber ||
-        "",
-
-      originalItemNumber:
-        oItem.BillOfMaterialItemNumber ||
-        oItem.billOfMaterialItemNumber ||
-        "",
-
-      isProductionRelevant:
-        oItem.IsProductionRelevant === undefined &&
-        oItem.isProductionRelevant === undefined
-          ? true
-          : !!(oItem.IsProductionRelevant || oItem.isProductionRelevant)
-    };
-  });
-},
-
-   _buildChangeHeaderData: function (oFirstItem, oRequest) {
-  oFirstItem = oFirstItem || {};
-  oRequest = oRequest || {};
-
-  return {
-    AppMode: Constants.APP_MODE.CHANGE,
-    IsChangeMode: true,
-
-    Material:
-      oFirstItem.Material ||
-      oFirstItem.material ||
-      oRequest.Material ||
-      "",
-
-    Plant:
-      oFirstItem.Plant ||
-      oFirstItem.plant ||
-      oRequest.Plant ||
-      "",
-
-    BomUsage:
-      oFirstItem.BillOfMaterialVariantUsage ||
-      oFirstItem.billOfMaterialVariantUsage ||
-      oRequest.BillOfMaterialVariantUsage ||
-      Constants.BOM_USAGE,
-
-    AltBom:
-      oFirstItem.BillOfMaterialVariant ||
-      oFirstItem.billOfMaterialVariant ||
-      oRequest.BillOfMaterialVariant ||
-      "",
-
-    BillOfMaterial:
-      oFirstItem.BillOfMaterial ||
-      oFirstItem.billOfMaterial ||
-      oRequest.BillOfMaterial ||
-      "",
-
-    BillOfMaterialCategory:
-      oFirstItem.BillOfMaterialCategory ||
-      oFirstItem.billOfMaterialCategory ||
-      Constants.DEFAULTS.BILL_OF_MATERIAL_CATEGORY ||
-      "M",
-
-    BillOfMaterialVariant:
-      oFirstItem.BillOfMaterialVariant ||
-      oFirstItem.billOfMaterialVariant ||
-      oRequest.BillOfMaterialVariant ||
-      "",
-
-    BillOfMaterialVariantUsage:
-      oFirstItem.BillOfMaterialVariantUsage ||
-      oFirstItem.billOfMaterialVariantUsage ||
-      oRequest.BillOfMaterialVariantUsage ||
-      Constants.BOM_USAGE,
-
-    BillOfMaterialVersion:
-      oFirstItem.BillOfMaterialVersion ||
-      oFirstItem.billOfMaterialVersion ||
-      "",
-
-    HeaderChangeDocument:
-      oFirstItem.HeaderChangeDocument ||
-      oFirstItem.headerChangeDocument ||
-      "",
-
-    BaseQty:
-      oFirstItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-      oFirstItem.BOMHeaderQuantityInBaseUnit !== null
-        ? String(oFirstItem.BOMHeaderQuantityInBaseUnit)
-        : (
-            oFirstItem.bomHeaderQuantityInBaseUnit !== undefined &&
-            oFirstItem.bomHeaderQuantityInBaseUnit !== null
-              ? String(oFirstItem.bomHeaderQuantityInBaseUnit)
-              : oFirstItem.BaseQty || ""
-          ),
-
-    BOMHeaderQuantityInBaseUnit:
-      oFirstItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-      oFirstItem.BOMHeaderQuantityInBaseUnit !== null
-        ? String(oFirstItem.BOMHeaderQuantityInBaseUnit)
-        : (
-            oFirstItem.bomHeaderQuantityInBaseUnit !== undefined &&
-            oFirstItem.bomHeaderQuantityInBaseUnit !== null
-              ? String(oFirstItem.bomHeaderQuantityInBaseUnit)
-              : oFirstItem.BaseQty || ""
-          ),
-
-    BaseUom:
-      oFirstItem.BOMHeaderBaseUnit ||
-      oFirstItem.bomHeaderBaseUnit ||
-      oFirstItem.BaseUom ||
-      "",
-
-    BOMHeaderBaseUnit:
-      oFirstItem.BOMHeaderBaseUnit ||
-      oFirstItem.bomHeaderBaseUnit ||
-      oFirstItem.BaseUom ||
-      "",
-
-    ValidFrom:
-      this._formatDateForDisplay(
-        oFirstItem.HeaderValidityStartDate ||
-        oFirstItem.headerValidityStartDate ||
-        oFirstItem.ValidFrom ||
-        ""
-      ),
-
-    HeaderValidityStartDate:
-      this._formatDateForDisplay(
-        oFirstItem.HeaderValidityStartDate ||
-        oFirstItem.headerValidityStartDate ||
-        oFirstItem.ValidFrom ||
-        ""
-      ),
-
-    BomStatus:
-      oFirstItem.BOMVersionStatus ||
-      oFirstItem.bomVersionStatus ||
-      oFirstItem.BomStatus ||
-      Constants.BOM_STATUS,
-
-    BOMVersionStatus:
-      oFirstItem.BOMVersionStatus ||
-      oFirstItem.bomVersionStatus ||
-      oFirstItem.BomStatus ||
-      Constants.BOM_STATUS,
-
-    HeaderText:
-      oFirstItem.BOMAlternativeText ||
-      oFirstItem.bomAlternativeText ||
-      oFirstItem.BOMALTERNATIVETEXT ||
-      oFirstItem.HeaderText ||
-      oFirstItem.headerText ||
-      "",
-
-    BOMAlternativeText:
-      oFirstItem.BOMAlternativeText ||
-      oFirstItem.bomAlternativeText ||
-      oFirstItem.BOMALTERNATIVETEXT ||
-      oFirstItem.HeaderText ||
-      oFirstItem.headerText ||
-      "",
-
-    IsValidated: true,
-    Message: "BOM loaded for change.",
-    MessageType: "Success",
-    ShowMessage: true
-  };
-},
+          IsValidated: true,
+          Message: "BOM loaded for change.",
+          MessageType: "Success",
+          ShowMessage: true
+        };
+      },
 
       _formatDateForDisplay: function (vDate) {
         if (!vDate) {
@@ -731,8 +561,12 @@ sap.ui.define(
 
         var oData = oChangeModel.getData();
 
-        if (!oData.CanContinue || !oData.HeaderData) {
-          MessageBox.error("Please fetch valid BOM details before continuing.");
+        if (
+          !oData.CanContinue ||
+          !oData.FetchedItems ||
+          !oData.FetchedItems.length
+        ) {
+          MessageBox.error("Please fetch valid BOM components before continuing.");
           return;
         }
 
@@ -752,43 +586,43 @@ sap.ui.define(
       },
 
       onMaterialValueHelp: function () {
-        var that = this;
+  var that = this;
 
-        ValueHelpHelper.openMaterialValueHelp(this, function (oData) {
-          var oChangeModel = that.getView().getModel("changeModel");
-          var sProduct = that._toDisplayMaterial(oData.Product || "");
+  ValueHelpHelper.openMaterialValueHelp(this, function (oData) {
+    var oChangeModel = that.getView().getModel("changeModel");
+    var sProduct = that._toDisplayMaterial(oData.Product || "");
 
-          oChangeModel.setProperty("/Material", sProduct);
-          oChangeModel.setProperty(
-            "/BackendMaterial",
-            that._toBackendMaterial(oData.Product || "")
-          );
+    oChangeModel.setProperty("/Material", sProduct);
+    oChangeModel.setProperty(
+      "/BackendMaterial",
+      that._toBackendMaterial(oData.Product || "")
+    );
 
-          oChangeModel.setProperty("/CanContinue", false);
-          oChangeModel.setProperty("/FetchedItems", []);
-          oChangeModel.setProperty("/HeaderData", null);
-          oChangeModel.setProperty("/SearchMode", "");
+    oChangeModel.setProperty("/CanContinue", false);
+    oChangeModel.setProperty("/FetchedItems", []);
+    oChangeModel.setProperty("/HeaderData", null);
+    oChangeModel.setProperty("/SearchMode", "");
 
-          that._clearMessage();
-        });
-      },
+    that._clearMessage();
+  });
+},
 
-      onPlantValueHelp: function () {
-        var that = this;
+     onPlantValueHelp: function () {
+  var that = this;
 
-        ValueHelpHelper.openPlantValueHelp(this, function (oData) {
-          var oChangeModel = that.getView().getModel("changeModel");
+  ValueHelpHelper.openPlantValueHelp(this, function (oData) {
+    var oChangeModel = that.getView().getModel("changeModel");
 
-          oChangeModel.setProperty("/Plant", that._toUpperTrim(oData.Plant || ""));
+    oChangeModel.setProperty("/Plant", that._toUpperTrim(oData.Plant || ""));
 
-          oChangeModel.setProperty("/CanContinue", false);
-          oChangeModel.setProperty("/FetchedItems", []);
-          oChangeModel.setProperty("/HeaderData", null);
-          oChangeModel.setProperty("/SearchMode", "");
+    oChangeModel.setProperty("/CanContinue", false);
+    oChangeModel.setProperty("/FetchedItems", []);
+    oChangeModel.setProperty("/HeaderData", null);
+    oChangeModel.setProperty("/SearchMode", "");
 
-          that._clearMessage();
-        });
-      },
+    that._clearMessage();
+  });
+},
 
       _resolveMaterialFromValueHelp: function (sMaterial) {
         sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
@@ -828,10 +662,15 @@ sap.ui.define(
           );
       },
 
-    _toBackendMaterial: function (sMaterial) {
-  sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
-  return String(sMaterial || "").trim().toUpperCase();
-},
+      _toBackendMaterial: function (sMaterial) {
+        sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+
+        if (/^\d+$/.test(sMaterial) && sMaterial.length < 18) {
+          return new Array(18 - sMaterial.length + 1).join("0") + sMaterial;
+        }
+
+        return sMaterial;
+      },
 
       _getRealBackendSortString: function (oItem) {
         if (!oItem) {
@@ -873,424 +712,424 @@ sap.ui.define(
       _cleanSortString: function (sSortString) {
         return String(sSortString || "").trim().toUpperCase();
       },
-      /* =========================================================== */
-      /* Live Suggestions                                             */
-      /* =========================================================== */
+/* =========================================================== */
+/* Live Suggestions                                             */
+/* =========================================================== */
 
-      _initSuggestionModels: function () {
-        this.getView().setModel(
-          new JSONModel({
-            items: []
-          }),
-          "materialSuggestModel"
-        );
+_initSuggestionModels: function () {
+  this.getView().setModel(
+    new JSONModel({
+      items: []
+    }),
+    "materialSuggestModel"
+  );
 
-        this.getView().setModel(
-          new JSONModel({
-            items: []
-          }),
-          "plantSuggestModel"
-        );
+  this.getView().setModel(
+    new JSONModel({
+      items: []
+    }),
+    "plantSuggestModel"
+  );
 
+  this._aMaterialVHCache = [];
+  this._aPlantVHCache = [];
+},
+
+_warmUpValueHelpCache: function () {
+  ValueHelpService.loadMaterialVHData(this)
+    .then(
+      function (oMaterialVHModel) {
+        this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
+      }.bind(this)
+    )
+    .catch(
+      function () {
         this._aMaterialVHCache = [];
-        this._aPlantVHCache = [];
-      },
+      }.bind(this)
+    );
 
-      _warmUpValueHelpCache: function () {
-        ValueHelpService.loadMaterialVHData(this)
-          .then(
-            function (oMaterialVHModel) {
-              this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
-            }.bind(this)
-          )
-          .catch(
-            function () {
-              this._aMaterialVHCache = [];
-            }.bind(this)
+  if (ValueHelpService.loadPlantVHData) {
+    ValueHelpService.loadPlantVHData(this)
+      .then(
+        function (oPlantVHModel) {
+          this._aPlantVHCache = this._getValueHelpRows(oPlantVHModel);
+        }.bind(this)
+      )
+      .catch(
+        function () {
+          this._aPlantVHCache = [];
+        }.bind(this)
+      );
+  }
+},
+
+_getValueHelpRows: function (oModel) {
+  var oData;
+
+  if (!oModel || !oModel.getData) {
+    return [];
+  }
+
+  oData = oModel.getData();
+
+  if (Array.isArray(oData)) {
+    return oData;
+  }
+
+  if (Array.isArray(oData.value)) {
+    return oData.value;
+  }
+
+  if (Array.isArray(oData.results)) {
+    return oData.results;
+  }
+
+  if (Array.isArray(oData.items)) {
+    return oData.items;
+  }
+
+  return [];
+},
+
+onMaterialLiveChange: function (oEvent) {
+  this._handleLiveMaterialInput(oEvent);
+},
+
+_handleLiveMaterialInput: function (oEvent) {
+  var oInput = oEvent.getSource();
+  var oChangeModel = this.getView().getModel("changeModel");
+  var sRawValue;
+  var sDisplayValue;
+
+  if (!oChangeModel) {
+    return;
+  }
+
+  /*
+   * Do not trim during live typing.
+   * Product description can contain spaces.
+   */
+  sRawValue = String(oInput.getValue() || "");
+  sDisplayValue = sRawValue.toUpperCase();
+
+  oInput.setValue(sDisplayValue);
+
+  oChangeModel.setProperty("/Material", sDisplayValue);
+  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+
+  if (this._looksLikeMaterialCode(sDisplayValue)) {
+    oChangeModel.setProperty(
+      "/BackendMaterial",
+      this._toBackendMaterial(sDisplayValue)
+    );
+  } else {
+    oChangeModel.setProperty("/BackendMaterial", "");
+  }
+
+  this.getView()
+    .getModel("materialSuggestModel")
+    .setProperty("/items", this._filterMaterialSuggestions(sDisplayValue));
+
+  this._clearFetchedData();
+},
+
+onMaterialSuggestionSelected: function (oEvent) {
+  var oSelectedRow = oEvent.getParameter("selectedRow");
+  var oSelectedItem = oEvent.getParameter("selectedItem");
+  var oChangeModel = this.getView().getModel("changeModel");
+  var oContext;
+  var oData;
+  var sMaterial;
+
+  if (!oChangeModel) {
+    return;
+  }
+
+  if (oSelectedRow) {
+    oContext = oSelectedRow.getBindingContext("materialSuggestModel");
+
+    if (oContext) {
+      oData = oContext.getObject();
+      sMaterial = oData.Product;
+    }
+  }
+
+  if (!sMaterial && oSelectedItem) {
+    sMaterial = oSelectedItem.getKey() || oSelectedItem.getText();
+  }
+
+  if (!sMaterial) {
+    return;
+  }
+
+  sMaterial = this._toDisplayMaterial(sMaterial);
+
+  oChangeModel.setProperty("/Material", sMaterial);
+  oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sMaterial));
+  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+
+  this._clearFetchedData();
+},
+
+_filterMaterialSuggestions: function (sValue) {
+  var sSearch = String(sValue || "").toUpperCase();
+  var sSearchTrimmed = sSearch.trim();
+  var sBackendSearch;
+  var aItems;
+
+  if (!sSearchTrimmed || sSearchTrimmed.length < 1) {
+    return [];
+  }
+
+  sBackendSearch = this._toBackendMaterial(sSearchTrimmed).toUpperCase();
+
+  aItems = this._aMaterialVHCache.filter(
+    function (oItem) {
+      var sProduct = String(oItem.Product || "").toUpperCase();
+      var sDisplayProduct = this._toDisplayMaterial(sProduct).toUpperCase();
+      var sDescription = this._getMaterialDescription(oItem).toUpperCase();
+
+      return (
+        sProduct.indexOf(sSearchTrimmed) !== -1 ||
+        sProduct.indexOf(sBackendSearch) !== -1 ||
+        sDisplayProduct.indexOf(sSearchTrimmed) !== -1 ||
+        sDescription.indexOf(sSearchTrimmed) !== -1
+      );
+    }.bind(this)
+  );
+
+  return aItems.slice(0, 20);
+},
+
+_resolveTypedMaterialOrDescriptionToProduct: function (
+  sValue,
+  sTargetProperty
+) {
+  var oChangeModel = this.getView().getModel("changeModel");
+  var sSearch = String(sValue || "").trim().toUpperCase();
+
+  if (!oChangeModel || !sSearch) {
+    return Promise.resolve("");
+  }
+
+  return this._ensureMaterialCacheLoaded().then(
+    function () {
+      var sBackendSearch = this._toBackendMaterial(sSearch).toUpperCase();
+      var aMatches;
+      var oMatched;
+      var sProduct;
+
+      aMatches = this._aMaterialVHCache.filter(
+        function (oItem) {
+          var sProductNo = String(oItem.Product || "").toUpperCase();
+          var sDisplayProduct = this._toDisplayMaterial(sProductNo).toUpperCase();
+          var sDescription = this._getMaterialDescription(oItem).toUpperCase();
+
+          return (
+            sProductNo === sSearch ||
+            sProductNo === sBackendSearch ||
+            sDisplayProduct === sSearch ||
+            sDescription === sSearch
           );
+        }.bind(this)
+      );
 
-        if (ValueHelpService.loadPlantVHData) {
-          ValueHelpService.loadPlantVHData(this)
-            .then(
-              function (oPlantVHModel) {
-                this._aPlantVHCache = this._getValueHelpRows(oPlantVHModel);
-              }.bind(this)
-            )
-            .catch(
-              function () {
-                this._aPlantVHCache = [];
-              }.bind(this)
-            );
-        }
-      },
-
-      _getValueHelpRows: function (oModel) {
-        var oData;
-
-        if (!oModel || !oModel.getData) {
-          return [];
-        }
-
-        oData = oModel.getData();
-
-        if (Array.isArray(oData)) {
-          return oData;
-        }
-
-        if (Array.isArray(oData.value)) {
-          return oData.value;
-        }
-
-        if (Array.isArray(oData.results)) {
-          return oData.results;
-        }
-
-        if (Array.isArray(oData.items)) {
-          return oData.items;
-        }
-
-        return [];
-      },
-
-      onMaterialLiveChange: function (oEvent) {
-        this._handleLiveMaterialInput(oEvent);
-      },
-
-      _handleLiveMaterialInput: function (oEvent) {
-        var oInput = oEvent.getSource();
-        var oChangeModel = this.getView().getModel("changeModel");
-        var sRawValue;
-        var sDisplayValue;
-
-        if (!oChangeModel) {
-          return;
-        }
-
-        /*
-         * Do not trim during live typing.
-         * Product description can contain spaces.
-         */
-        sRawValue = String(oInput.getValue() || "");
-        sDisplayValue = sRawValue.toUpperCase();
-
-        oInput.setValue(sDisplayValue);
-
-        oChangeModel.setProperty("/Material", sDisplayValue);
-        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-
-        if (this._looksLikeMaterialCode(sDisplayValue)) {
-          oChangeModel.setProperty(
-            "/BackendMaterial",
-            this._toBackendMaterial(sDisplayValue)
-          );
-        } else {
-          oChangeModel.setProperty("/BackendMaterial", "");
-        }
-
-        this.getView()
-          .getModel("materialSuggestModel")
-          .setProperty("/items", this._filterMaterialSuggestions(sDisplayValue));
-
-        this._clearFetchedData();
-      },
-
-      onMaterialSuggestionSelected: function (oEvent) {
-        var oSelectedRow = oEvent.getParameter("selectedRow");
-        var oSelectedItem = oEvent.getParameter("selectedItem");
-        var oChangeModel = this.getView().getModel("changeModel");
-        var oContext;
-        var oData;
-        var sMaterial;
-
-        if (!oChangeModel) {
-          return;
-        }
-
-        if (oSelectedRow) {
-          oContext = oSelectedRow.getBindingContext("materialSuggestModel");
-
-          if (oContext) {
-            oData = oContext.getObject();
-            sMaterial = oData.Product;
-          }
-        }
-
-        if (!sMaterial && oSelectedItem) {
-          sMaterial = oSelectedItem.getKey() || oSelectedItem.getText();
-        }
-
-        if (!sMaterial) {
-          return;
-        }
-
-        sMaterial = this._toDisplayMaterial(sMaterial);
-
-        oChangeModel.setProperty("/Material", sMaterial);
-        oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sMaterial));
-        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-
-        this._clearFetchedData();
-      },
-
-      _filterMaterialSuggestions: function (sValue) {
-        var sSearch = String(sValue || "").toUpperCase();
-        var sSearchTrimmed = sSearch.trim();
-        var sBackendSearch;
-        var aItems;
-
-        if (!sSearchTrimmed || sSearchTrimmed.length < 1) {
-          return [];
-        }
-
-        sBackendSearch = this._toBackendMaterial(sSearchTrimmed).toUpperCase();
-
-        aItems = this._aMaterialVHCache.filter(
+      if (!aMatches.length) {
+        aMatches = this._aMaterialVHCache.filter(
           function (oItem) {
-            var sProduct = String(oItem.Product || "").toUpperCase();
-            var sDisplayProduct = this._toDisplayMaterial(sProduct).toUpperCase();
+            var sProductNo = String(oItem.Product || "").toUpperCase();
+            var sDisplayProduct = this._toDisplayMaterial(sProductNo).toUpperCase();
             var sDescription = this._getMaterialDescription(oItem).toUpperCase();
 
             return (
-              sProduct.indexOf(sSearchTrimmed) !== -1 ||
-              sProduct.indexOf(sBackendSearch) !== -1 ||
-              sDisplayProduct.indexOf(sSearchTrimmed) !== -1 ||
-              sDescription.indexOf(sSearchTrimmed) !== -1
+              sProductNo.indexOf(sSearch) !== -1 ||
+              sProductNo.indexOf(sBackendSearch) !== -1 ||
+              sDisplayProduct.indexOf(sSearch) !== -1 ||
+              sDescription.indexOf(sSearch) !== -1
             );
           }.bind(this)
         );
+      }
 
-        return aItems.slice(0, 20);
-      },
+      if (!aMatches.length) {
+        return "";
+      }
 
-      _resolveTypedMaterialOrDescriptionToProduct: function (
-        sValue,
-        sTargetProperty
-      ) {
-        var oChangeModel = this.getView().getModel("changeModel");
-        var sSearch = String(sValue || "").trim().toUpperCase();
+      oMatched = aMatches[0];
+      sProduct = this._toDisplayMaterial(oMatched.Product || "");
 
-        if (!oChangeModel || !sSearch) {
-          return Promise.resolve("");
-        }
+      if (!sProduct) {
+        return "";
+      }
 
-        return this._ensureMaterialCacheLoaded().then(
-          function () {
-            var sBackendSearch = this._toBackendMaterial(sSearch).toUpperCase();
-            var aMatches;
-            var oMatched;
-            var sProduct;
+      oChangeModel.setProperty(sTargetProperty, sProduct);
+      oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sProduct));
+      oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-            aMatches = this._aMaterialVHCache.filter(
-              function (oItem) {
-                var sProductNo = String(oItem.Product || "").toUpperCase();
-                var sDisplayProduct = this._toDisplayMaterial(sProductNo).toUpperCase();
-                var sDescription = this._getMaterialDescription(oItem).toUpperCase();
+      return sProduct;
+    }.bind(this)
+  );
+},
 
-                return (
-                  sProductNo === sSearch ||
-                  sProductNo === sBackendSearch ||
-                  sDisplayProduct === sSearch ||
-                  sDescription === sSearch
-                );
-              }.bind(this)
-            );
+_ensureMaterialCacheLoaded: function () {
+  if (this._aMaterialVHCache && this._aMaterialVHCache.length) {
+    return Promise.resolve();
+  }
 
-            if (!aMatches.length) {
-              aMatches = this._aMaterialVHCache.filter(
-                function (oItem) {
-                  var sProductNo = String(oItem.Product || "").toUpperCase();
-                  var sDisplayProduct = this._toDisplayMaterial(sProductNo).toUpperCase();
-                  var sDescription = this._getMaterialDescription(oItem).toUpperCase();
+  return ValueHelpService.loadMaterialVHData(this).then(
+    function (oMaterialVHModel) {
+      this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
+    }.bind(this)
+  );
+},
 
-                  return (
-                    sProductNo.indexOf(sSearch) !== -1 ||
-                    sProductNo.indexOf(sBackendSearch) !== -1 ||
-                    sDisplayProduct.indexOf(sSearch) !== -1 ||
-                    sDescription.indexOf(sSearch) !== -1
-                  );
-                }.bind(this)
-              );
-            }
+_getMaterialDescription: function (oItem) {
+  return String(
+    oItem.ProductDescription ||
+      oItem.ProductName ||
+      oItem.MaterialDescription ||
+      oItem.Description ||
+      ""
+  );
+},
 
-            if (!aMatches.length) {
-              return "";
-            }
+onPlantLiveChange: function (oEvent) {
+  var oInput = oEvent.getSource();
+  var oChangeModel = this.getView().getModel("changeModel");
+  var sValue;
 
-            oMatched = aMatches[0];
-            sProduct = this._toDisplayMaterial(oMatched.Product || "");
+  if (!oChangeModel) {
+    return;
+  }
 
-            if (!sProduct) {
-              return "";
-            }
+  sValue = this._toUpperTrim(oInput.getValue());
 
-            oChangeModel.setProperty(sTargetProperty, sProduct);
-            oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sProduct));
-            oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+  oInput.setValue(sValue);
 
-            return sProduct;
-          }.bind(this)
-        );
-      },
+  oChangeModel.setProperty("/Plant", sValue);
+  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-      _ensureMaterialCacheLoaded: function () {
-        if (this._aMaterialVHCache && this._aMaterialVHCache.length) {
-          return Promise.resolve();
-        }
+  this.getView()
+    .getModel("plantSuggestModel")
+    .setProperty("/items", this._filterPlantSuggestions(sValue));
 
-        return ValueHelpService.loadMaterialVHData(this).then(
-          function (oMaterialVHModel) {
-            this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
-          }.bind(this)
-        );
-      },
+  this._clearFetchedData();
+},
 
-      _getMaterialDescription: function (oItem) {
-        return String(
-          oItem.ProductDescription ||
-          oItem.ProductName ||
-          oItem.MaterialDescription ||
-          oItem.Description ||
-          ""
-        );
-      },
+onPlantSuggestionSelected: function (oEvent) {
+  var oSelectedRow = oEvent.getParameter("selectedRow");
+  var oSelectedItem = oEvent.getParameter("selectedItem");
+  var oChangeModel = this.getView().getModel("changeModel");
+  var oContext;
+  var oData;
+  var sPlant;
 
-      onPlantLiveChange: function (oEvent) {
-        var oInput = oEvent.getSource();
-        var oChangeModel = this.getView().getModel("changeModel");
-        var sValue;
+  if (!oChangeModel) {
+    return;
+  }
 
-        if (!oChangeModel) {
-          return;
-        }
+  if (oSelectedRow) {
+    oContext = oSelectedRow.getBindingContext("plantSuggestModel");
 
-        sValue = this._toUpperTrim(oInput.getValue());
+    if (oContext) {
+      oData = oContext.getObject();
+      sPlant = oData.Plant;
+    }
+  }
 
-        oInput.setValue(sValue);
+  if (!sPlant && oSelectedItem) {
+    sPlant = oSelectedItem.getKey() || oSelectedItem.getText();
+  }
 
-        oChangeModel.setProperty("/Plant", sValue);
-        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+  if (!sPlant) {
+    return;
+  }
 
-        this.getView()
-          .getModel("plantSuggestModel")
-          .setProperty("/items", this._filterPlantSuggestions(sValue));
+  sPlant = this._toUpperTrim(sPlant);
 
-        this._clearFetchedData();
-      },
+  oChangeModel.setProperty("/Plant", sPlant);
+  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-      onPlantSuggestionSelected: function (oEvent) {
-        var oSelectedRow = oEvent.getParameter("selectedRow");
-        var oSelectedItem = oEvent.getParameter("selectedItem");
-        var oChangeModel = this.getView().getModel("changeModel");
-        var oContext;
-        var oData;
-        var sPlant;
+  this._clearFetchedData();
+},
 
-        if (!oChangeModel) {
-          return;
-        }
+_filterPlantSuggestions: function (sValue) {
+  var sSearch = this._toUpperTrim(sValue);
+  var aItems;
 
-        if (oSelectedRow) {
-          oContext = oSelectedRow.getBindingContext("plantSuggestModel");
+  if (!sSearch || sSearch.length < 1) {
+    return [];
+  }
 
-          if (oContext) {
-            oData = oContext.getObject();
-            sPlant = oData.Plant;
-          }
-        }
+  aItems = this._aPlantVHCache.filter(
+    function (oItem) {
+      var sAllText = this._getSearchableTextFromObject(oItem);
 
-        if (!sPlant && oSelectedItem) {
-          sPlant = oSelectedItem.getKey() || oSelectedItem.getText();
-        }
+      return sAllText.indexOf(sSearch) !== -1;
+    }.bind(this)
+  );
 
-        if (!sPlant) {
-          return;
-        }
+  return aItems.slice(0, 20);
+},
 
-        sPlant = this._toUpperTrim(sPlant);
+_getSearchableTextFromObject: function (oObject) {
+  var aValues = [];
 
-        oChangeModel.setProperty("/Plant", sPlant);
-        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+  Object.keys(oObject || {}).forEach(function (sKey) {
+    var vValue = oObject[sKey];
 
-        this._clearFetchedData();
-      },
+    if (
+      vValue !== null &&
+      vValue !== undefined &&
+      typeof vValue !== "object" &&
+      typeof vValue !== "function"
+    ) {
+      aValues.push(String(vValue));
+    }
+  });
 
-      _filterPlantSuggestions: function (sValue) {
-        var sSearch = this._toUpperTrim(sValue);
-        var aItems;
+  return aValues.join(" ").toUpperCase();
+},
 
-        if (!sSearch || sSearch.length < 1) {
-          return [];
-        }
+_toUpperTrim: function (sValue) {
+  return String(sValue || "").trim().toUpperCase();
+},
 
-        aItems = this._aPlantVHCache.filter(
-          function (oItem) {
-            var sAllText = this._getSearchableTextFromObject(oItem);
+_looksLikeMaterialCode: function (sValue) {
+  sValue = String(sValue || "").trim();
 
-            return sAllText.indexOf(sSearch) !== -1;
-          }.bind(this)
-        );
+  return !!sValue && sValue.indexOf(" ") === -1;
+},
 
-        return aItems.slice(0, 20);
-      },
+_toDisplayMaterial: function (sMaterial) {
+  sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+  sMaterial = String(sMaterial || "").trim().toUpperCase();
 
-      _getSearchableTextFromObject: function (oObject) {
-        var aValues = [];
+  /*
+   * Do not show leading zero on screen.
+   */
+  if (/^0+\d+$/.test(sMaterial)) {
+    return String(Number(sMaterial));
+  }
 
-        Object.keys(oObject || {}).forEach(function (sKey) {
-          var vValue = oObject[sKey];
+  return sMaterial;
+},
 
-          if (
-            vValue !== null &&
-            vValue !== undefined &&
-            typeof vValue !== "object" &&
-            typeof vValue !== "function"
-          ) {
-            aValues.push(String(vValue));
-          }
-        });
+_getBackendMaterialFromChangeModel: function () {
+  var oChangeModel = this.getView().getModel("changeModel");
+  var sMaterial;
 
-        return aValues.join(" ").toUpperCase();
-      },
+  if (!oChangeModel) {
+    return "";
+  }
 
-      _toUpperTrim: function (sValue) {
-        return String(sValue || "").trim().toUpperCase();
-      },
+  sMaterial =
+    oChangeModel.getProperty("/BackendMaterial") ||
+    oChangeModel.getProperty("/Material") ||
+    "";
 
-      _looksLikeMaterialCode: function (sValue) {
-        sValue = String(sValue || "").trim();
-
-        return !!sValue && sValue.indexOf(" ") === -1;
-      },
-
-      _toDisplayMaterial: function (sMaterial) {
-        sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
-        sMaterial = String(sMaterial || "").trim().toUpperCase();
-
-        /*
-         * Do not show leading zero on screen.
-         */
-        if (/^0+\d+$/.test(sMaterial)) {
-          return String(Number(sMaterial));
-        }
-
-        return sMaterial;
-      },
-
-      _getBackendMaterialFromChangeModel: function () {
-        var oChangeModel = this.getView().getModel("changeModel");
-        var sMaterial;
-
-        if (!oChangeModel) {
-          return "";
-        }
-
-        sMaterial =
-          oChangeModel.getProperty("/BackendMaterial") ||
-          oChangeModel.getProperty("/Material") ||
-          "";
-
-        return this._toBackendMaterial(sMaterial);
-      },
+  return this._toBackendMaterial(sMaterial);
+},
       _escapeODataValue: function (sValue) {
         return String(sValue || "").replace(/'/g, "''");
       },

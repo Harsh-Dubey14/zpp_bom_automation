@@ -47,22 +47,23 @@ sap.ui.define(
     "use strict";
 
     return Controller.extend("zppbomautomation.controller.BOMItem", {
-      onInit: function () {
-        ItemModel.init(this.getOwnerComponent(), this.getView());
-        ResultModel.init(this.getView());
+    onInit: function () {
+  ItemModel.init(this.getOwnerComponent(), this.getView());
+  ResultModel.init(this.getView());
 
-        this._sSortStringVHMaterial = "";
-        this._oSortStringVHModel = null;
-        this._oCurrentComponentContext = null;
-        this._oCurrentSortStringContext = null;
-        this._oCurrentUomContext = null;
-        this._oUomVHDialog = null;
+  this._sSortStringVHMaterial = "";
+  this._oSortStringVHModel = null;
+  this._oCurrentComponentContext = null;
+  this._oCurrentSortStringContext = null;
+  this._oCurrentUomContext = null;
+  this._oUomVHDialog = null;
+  this._bSaveInProgress = false;
 
-        this.getOwnerComponent()
-          .getRouter()
-          .getRoute(Constants.ROUTES.ITEM)
-          .attachPatternMatched(this._onRouteMatched, this);
-      },
+  this.getOwnerComponent()
+    .getRouter()
+    .getRoute(Constants.ROUTES.ITEM)
+    .attachPatternMatched(this._onRouteMatched, this);
+},
 
     _onRouteMatched: async function () {
   var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
@@ -182,38 +183,60 @@ sap.ui.define(
       },
 
       onSave: async function () {
-        var oResultModel = this.getView().getModel("resultModel");
+  var oResultModel = this.getView().getModel("resultModel");
 
-        try {
-          var oValidation = await this._validateBeforeSaveAsync();
+  if (this._bSaveInProgress) {
+    MessageToast.show("Posting is already in progress. Please wait.");
+    return;
+  }
 
-          if (!oValidation.valid) {
-            MessageBox.error(oValidation.message);
-            return;
-          }
+  this._bSaveInProgress = true;
 
-          var oPayload = this._buildBomCreatePayload();
+  if (oResultModel) {
+    oResultModel.setProperty("/CanSave", false);
+    oResultModel.setProperty("/Editable", false);
+    oResultModel.setProperty("/Status", "PROCESSING");
+    oResultModel.setProperty("/StatusState", "Warning");
+    oResultModel.setProperty("/Message", "Posting BOM...");
+    oResultModel.setProperty("/MessageType", "Information");
+    oResultModel.setProperty("/ShowMessage", true);
+  }
 
-          ResultModel.setCreating(oResultModel);
+  BusyIndicator.show(0);
 
-          BusyIndicator.show(0);
+  try {
+    var oValidation = await this._validateBeforeSaveAsync();
 
-          var oResponse = await BomActionService.createBom(
-            this.getOwnerComponent().getModel(),
-            oPayload
-          );
+    if (!oValidation.valid) {
+      throw {
+        message: oValidation.message
+      };
+    }
 
-          this._handleCreateResponse(oResponse);
-        } catch (oError) {
-          var sErrorText = this._getErrorText(oError);
+    var oPayload = this._buildBomCreatePayload();
 
-          ResultModel.setError(oResultModel, sErrorText);
+    var oResponse = await BomActionService.createBom(
+      this.getOwnerComponent().getModel(),
+      oPayload
+    );
 
-          MessageBox.error(sErrorText);
-        } finally {
-          BusyIndicator.hide();
-        }
-      },
+    this._handleCreateResponse(oResponse);
+  } catch (oError) {
+    var sErrorText = this._getErrorText(oError);
+
+    ResultModel.setError(oResultModel, sErrorText);
+
+    if (oResultModel) {
+      oResultModel.setProperty("/CanSave", true);
+      oResultModel.setProperty("/Editable", true);
+    }
+
+    MessageBox.error(sErrorText);
+  } finally {
+    BusyIndicator.hide();
+    this._bSaveInProgress = false;
+  }
+},
 
       _validateBeforeSaveAsync: async function () {
   var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
