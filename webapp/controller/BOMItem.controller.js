@@ -296,38 +296,63 @@ sap.ui.define(
   return ItemScreenService.buildBomCreatePayload(oHeader, aItems);
 },
 
-      _handleCreateResponse: function (oResponse) {
-        var oResultModel = this.getView().getModel("resultModel");
+     _handleCreateResponse: function (oResponse) {
+  var oResultModel = this.getView().getModel("resultModel");
+  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
 
-        var sBillOfMaterial = ItemScreenService.extractBillOfMaterial(
-          oResponse.ApiResponse
-        );
+  var sBillOfMaterial = ItemScreenService.extractBillOfMaterial(
+    oResponse.ApiResponse
+  );
 
-        ResultModel.applyCreateResponse(
-          oResultModel,
-          oResponse,
-          sBillOfMaterial
-        );
+  var sAltBom = "";
 
-        if (oResponse.Status === "SUCCESS") {
-          var sSuccessMessage = sBillOfMaterial
-            ? "BOM created successfully. BOM Number: " + sBillOfMaterial
-            : oResponse.Message || "BOM created successfully.";
+  if (oHeaderModel) {
+    sAltBom = String(oHeaderModel.getProperty("/AltBom") || "").trim();
+  }
 
-          MessageBox.success(sSuccessMessage);
-          return;
-        }
+  /*
+   * Fallbacks in case backend response contains alternate BOM.
+   */
+  if (!sAltBom) {
+    sAltBom = String(
+      oResponse.AltBom ||
+      oResponse.NextAltBom ||
+      oResponse.BillOfMaterialVariant ||
+      ""
+    ).trim();
+  }
 
-        if (oResponse.Status === "ERROR") {
-          MessageBox.error(oResponse.Message || "BOM creation failed.");
-          return;
-        }
+  ResultModel.applyCreateResponse(
+    oResultModel,
+    oResponse,
+    sBillOfMaterial
+  );
 
-        MessageBox.warning(
-          oResponse.Message ||
-          "BOM request saved, but final status is not SUCCESS."
-        );
-      },
+  if (oResponse.Status === "SUCCESS") {
+    var sSuccessMessage = "BOM created successfully.";
+
+    if (sBillOfMaterial) {
+      sSuccessMessage += "\nBOM Number: " + sBillOfMaterial;
+    }
+
+    if (sAltBom) {
+      sSuccessMessage += "\nAlternate BOM: " + sAltBom;
+    }
+
+    MessageBox.success(sSuccessMessage);
+    return;
+  }
+
+  if (oResponse.Status === "ERROR") {
+    MessageBox.error(oResponse.Message || "BOM creation failed.");
+    return;
+  }
+
+  MessageBox.warning(
+    oResponse.Message ||
+      "BOM request saved, but final status is not SUCCESS."
+  );
+},
 
   onCancel: function () {
   var that = this;

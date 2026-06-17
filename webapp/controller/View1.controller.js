@@ -1,4 +1,4 @@
-/* global Promise */
+ /* global Promise */
 /* eslint-disable max-params */
 sap.ui.define(
   [
@@ -65,6 +65,7 @@ sap.ui.define(
           true
         );
       },
+
       _onRouteMatched: function () {
         var oHeaderModel = HeaderModel.init(
           this.getOwnerComponent(),
@@ -76,19 +77,11 @@ sap.ui.define(
           this.getView()
         );
 
-        /*
-         * Production rule:
-         * Header screen is a fresh create screen.
-         * Do not restore previous BOM from browser back/hash/query.
-         */
         this._resetHeaderAndItemDraftData(oHeaderModel);
 
         this.getView().setModel(oHeaderModel, "headerModel");
         this.getView().setModel(oItemModel, "itemModel");
 
-        /*
-         * Remove old query/hash data if browser restored it.
-         */
         this._replaceHeaderRouteWithoutQuery();
       },
 
@@ -156,21 +149,54 @@ sap.ui.define(
       },
 
       _syncHeaderToRoute: function () {
-        /*
-         * Do not store form data in URL query.
-         * In production, draft data should not come back from old browser history.
-         */
         return;
+      },
+
+      _invalidatePrepareValidation: function (oHeaderModel) {
+        if (!oHeaderModel) {
+          return;
+        }
+
+        oHeaderModel.setProperty("/AltBom", "");
+        oHeaderModel.setProperty("/IsValidated", false);
+      },
+
+      _getAlternateBomTextFromControl: function () {
+        var oAltTextControl = this.byId("selHeaderText") || this.byId("inpHeaderText");
+
+        if (!oAltTextControl) {
+          return "";
+        }
+
+        if (oAltTextControl.getSelectedKey) {
+          return String(oAltTextControl.getSelectedKey() || "").trim();
+        }
+
+        if (oAltTextControl.getValue) {
+          return String(oAltTextControl.getValue() || "").trim();
+        }
+
+        return "";
       },
 
       onHeaderFieldChange: function (oEvent) {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var oSource;
+        var sId;
+        var sHeaderText;
 
         if (!oHeaderModel) {
           return;
         }
 
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+
+        if (!oEvent || !oEvent.getSource) {
+          return;
+        }
+
+        oSource = oEvent.getSource();
+        sId = oSource.getId();
 
         if (this._isCopyFromField(oEvent)) {
           this._normalizeCopyFromInput(oEvent);
@@ -180,14 +206,20 @@ sap.ui.define(
         }
 
         if (
-          oEvent &&
-          oEvent.getSource &&
-          oEvent.getSource().getId().indexOf("inpHeaderText") !== -1
+          sId.indexOf("inpHeaderText") !== -1 ||
+          sId.indexOf("selHeaderText") !== -1
         ) {
-          oHeaderModel.setProperty(
-            "/HeaderText",
-            String(oEvent.getSource().getValue() || "")
-          );
+          if (oSource.getSelectedKey) {
+            sHeaderText = String(oSource.getSelectedKey() || "").trim();
+          } else if (oSource.getValue) {
+            sHeaderText = String(oSource.getValue() || "").trim();
+          } else {
+            sHeaderText = "";
+          }
+
+          oHeaderModel.setProperty("/HeaderText", sHeaderText);
+
+          this._invalidatePrepareValidation(oHeaderModel);
 
           HeaderModel.clearValidation(oHeaderModel);
           this._syncHeaderToRoute();
@@ -196,6 +228,7 @@ sap.ui.define(
 
         this._normalizeMainHeaderInput(oEvent);
 
+        this._invalidatePrepareValidation(oHeaderModel);
         HeaderModel.clearValidation(oHeaderModel);
         this._clearCopiedItems();
         this._syncHeaderToRoute();
@@ -265,10 +298,6 @@ sap.ui.define(
           oSource.setValue(sCopyPlant);
           oHeaderModel.setProperty("/CopyPlant", sCopyPlant);
         }
-
-        /*
-         * No formatting, padding, or changing is done for CopyAltBom.
-         */
       },
 
       _isCopyFromField: function (oEvent) {
@@ -292,6 +321,7 @@ sap.ui.define(
       onContinue: async function () {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
         var oHeader;
+        var sHeaderText;
 
         if (!oHeaderModel) {
           MessageBox.error("Header model is missing.");
@@ -301,8 +331,21 @@ sap.ui.define(
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
         oHeader = oHeaderModel.getData();
 
+        sHeaderText =
+          String(oHeader.HeaderText || "").trim() ||
+          this._getAlternateBomTextFromControl();
+
+        if (sHeaderText) {
+          oHeaderModel.setProperty("/HeaderText", sHeaderText);
+        }
+
         if (!oHeader.Material || !oHeader.Plant) {
           MessageBox.error("Please fill Material and Plant.");
+          return;
+        }
+
+        if (!sHeaderText) {
+          MessageBox.error("Alternate BOM Text is mandatory.");
           return;
         }
 
@@ -319,7 +362,9 @@ sap.ui.define(
           oHeader = oHeaderModel.getData();
 
           if (!oHeader.IsValidated || !oHeader.AltBom) {
-            MessageBox.error("Material and Plant validation failed.");
+            MessageBox.error(
+              "Material, Plant and Alternate BOM Text validation failed."
+            );
             return;
           }
 
@@ -371,127 +416,145 @@ sap.ui.define(
         }
       },
 
-     _validateMaterialAndFetchAltBom: async function (bShowToast) {
-  var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
-  var oPreparedData;
-  var oPrepareResponse;
+      _validateMaterialAndFetchAltBom: async function (bShowToast) {
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var oPreparedData;
+        var oPrepareResponse;
 
-  if (!oHeaderModel) {
-    throw new Error("Header model is missing.");
-  }
+        if (!oHeaderModel) {
+          throw new Error("Header model is missing.");
+        }
 
-  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-  oPreparedData = await this._prepareMaterialPlantForValidation(oHeaderModel);
+        oPreparedData = await this._prepareMaterialPlantForValidation(
+          oHeaderModel
+        );
 
-  oPrepareResponse = await this._prepareCreateBomWithBackend(
-    oPreparedData.Material,
-    oPreparedData.Plant
-  );
+        oPrepareResponse = await this._prepareCreateBomWithBackend(
+          oPreparedData.Material,
+          oPreparedData.Plant,
+          oPreparedData.AltText
+        );
 
-  this._applyPrepareCreateBomResponse(
-    oHeaderModel,
-    oPrepareResponse
-  );
+        this._applyPrepareCreateBomResponse(oHeaderModel, oPrepareResponse);
 
-  if (bShowToast) {
-    MessageToast.show(
-      oPrepareResponse.Message ||
-      "Material and Plant are valid. Alternate BOM fetched."
-    );
-  }
+        if (bShowToast) {
+          MessageToast.show(
+            oPrepareResponse.Message ||
+              "Material, Plant and Alternate BOM Text are valid. Alternate BOM fetched."
+          );
+        }
 
-  return oPrepareResponse;
-},
-    _prepareMaterialPlantForValidation: async function (oHeaderModel) {
-  var oHeader = oHeaderModel.getData();
-  var sResolvedProduct;
-  var sMaterial;
-  var sPlant;
+        return oPrepareResponse;
+      },
 
-  if (!oHeader.Material || !oHeader.Plant) {
-    throw new Error("Please enter Material and Plant first.");
-  }
+      _prepareMaterialPlantForValidation: async function (oHeaderModel) {
+        var oHeader = oHeaderModel.getData();
+        var sResolvedProduct;
+        var sMaterial;
+        var sPlant;
+        var sAltText;
 
-  /*
-   * If user typed Product Description,
-   * resolve it to actual Product before backend call.
-   */
-  sResolvedProduct = await this._resolveTypedMaterialOrDescriptionToProduct(
-    oHeader.Material,
-    "/Material"
-  );
+        if (!oHeader.Material || !oHeader.Plant) {
+          throw new Error("Please enter Material and Plant first.");
+        }
 
-  oHeader = oHeaderModel.getData();
+        sAltText =
+          String(oHeader.HeaderText || "").trim() ||
+          this._getAlternateBomTextFromControl();
 
-  if (!sResolvedProduct || !this._looksLikeMaterialCode(oHeader.Material)) {
-    throw new Error(
-      "Please select or enter a valid Product before validating."
-    );
-  }
+        if (!sAltText) {
+          throw new Error("Alternate BOM Text is mandatory.");
+        }
 
-  /*
-   * Frontend sends material as-is.
-   * Backend will handle leading zero.
-   */
-  sMaterial = this._toBackendMaterial(oHeader.Material);
-  sPlant = this._toUpperTrim(oHeader.Plant);
+        sResolvedProduct = await this._resolveTypedMaterialOrDescriptionToProduct(
+          oHeader.Material,
+          "/Material"
+        );
 
-  oHeaderModel.setProperty("/Material", sMaterial);
-  oHeaderModel.setProperty("/BackendMaterial", sMaterial);
-  oHeaderModel.setProperty("/Plant", sPlant);
-  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+        oHeader = oHeaderModel.getData();
 
-  this._syncHeaderToRoute();
+        if (!sResolvedProduct || !this._looksLikeMaterialCode(oHeader.Material)) {
+          throw new Error(
+            "Please select or enter a valid Product before validating."
+          );
+        }
 
-  return {
-    Material: sMaterial,
-    Plant: sPlant
-  };
-},
-  _prepareCreateBomWithBackend: function (sMaterial, sPlant) {
-  return BomActionService.prepareCreateBOM(
-    this.getOwnerComponent().getModel(),
-    {
-      Material: sMaterial,
-      Plant: sPlant,
-      BomUsage: Constants.BOM_USAGE
-    }
-  );
-},
+        sMaterial = this._toBackendMaterial(oHeader.Material);
+        sPlant = this._toUpperTrim(oHeader.Plant);
 
-_applyPrepareCreateBomResponse: function (
-  oHeaderModel,
-  oPrepareResponse
-) {
-  oHeaderModel.setProperty("/Message", oPrepareResponse.Message || "");
-  oHeaderModel.setProperty("/ShowMessage", true);
-  oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+        oHeaderModel.setProperty("/Material", sMaterial);
+        oHeaderModel.setProperty("/BackendMaterial", sMaterial);
+        oHeaderModel.setProperty("/Plant", sPlant);
+        oHeaderModel.setProperty("/HeaderText", sAltText);
+        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-  if (!oPrepareResponse.IsValid) {
-    HeaderModel.setInvalidState(
-      oHeaderModel,
-      oPrepareResponse.Message || "Material and Plant validation failed.",
-      "Error"
-    );
+        this._syncHeaderToRoute();
 
-    this._syncHeaderToRoute();
+        return {
+          Material: sMaterial,
+          Plant: sPlant,
+          AltText: sAltText
+        };
+      },
 
-    throw new Error(
-      oPrepareResponse.Message || "Material and Plant validation failed."
-    );
-  }
+      _prepareCreateBomWithBackend: function (sMaterial, sPlant, sAltText) {
+        return BomActionService.prepareCreateBOM(
+          this.getOwnerComponent().getModel(),
+          {
+            Material: sMaterial,
+            Plant: sPlant,
+            BomUsage: Constants.BOM_USAGE,
+            AltText: sAltText
+          }
+        );
+      },
 
-  oHeaderModel.setProperty("/Material", oPrepareResponse.Material || "");
-  oHeaderModel.setProperty("/BackendMaterial", oPrepareResponse.Material || "");
-  oHeaderModel.setProperty("/Plant", oPrepareResponse.Plant || "");
-  oHeaderModel.setProperty("/BaseUom", oPrepareResponse.BaseUnit || "");
-  oHeaderModel.setProperty("/AltBom", oPrepareResponse.NextAltBom || "");
-  oHeaderModel.setProperty("/IsValidated", true);
-  oHeaderModel.setProperty("/MessageType", "Success");
+      _applyPrepareCreateBomResponse: function (
+        oHeaderModel,
+        oPrepareResponse
+      ) {
+        oHeaderModel.setProperty("/Message", oPrepareResponse.Message || "");
+        oHeaderModel.setProperty("/ShowMessage", true);
+        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
-  this._syncHeaderToRoute();
-},
+        if (!oPrepareResponse.IsValid) {
+          HeaderModel.setInvalidState(
+            oHeaderModel,
+            oPrepareResponse.Message ||
+              "Material, Plant and Alternate BOM Text validation failed.",
+            "Error"
+          );
+
+          this._syncHeaderToRoute();
+
+          throw new Error(
+            oPrepareResponse.Message ||
+              "Material, Plant and Alternate BOM Text validation failed."
+          );
+        }
+
+        oHeaderModel.setProperty("/Material", oPrepareResponse.Material || "");
+        oHeaderModel.setProperty(
+          "/BackendMaterial",
+          oPrepareResponse.Material || ""
+        );
+        oHeaderModel.setProperty("/Plant", oPrepareResponse.Plant || "");
+        oHeaderModel.setProperty(
+          "/HeaderText",
+          oPrepareResponse.AltText ||
+            oHeaderModel.getProperty("/HeaderText") ||
+            this._getAlternateBomTextFromControl() ||
+            ""
+        );
+        oHeaderModel.setProperty("/BaseUom", oPrepareResponse.BaseUnit || "");
+        oHeaderModel.setProperty("/AltBom", oPrepareResponse.NextAltBom || "");
+        oHeaderModel.setProperty("/IsValidated", true);
+        oHeaderModel.setProperty("/MessageType", "Success");
+
+        this._syncHeaderToRoute();
+      },
 
       _applyAltBomResponse: function (oHeaderModel, oAltBomResponse) {
         oHeaderModel.setProperty("/Message", oAltBomResponse.Message || "");
@@ -512,10 +575,6 @@ _applyPrepareCreateBomResponse: function (
           );
         }
 
-        /*
-         * Main AltBom is set only from backend.
-         * No user input formatting is done.
-         */
         oHeaderModel.setProperty("/AltBom", oAltBomResponse.NextAltBom || "");
         oHeaderModel.setProperty("/IsValidated", true);
         oHeaderModel.setProperty("/MessageType", "Success");
@@ -622,11 +681,6 @@ _applyPrepareCreateBomResponse: function (
                 sBackendCopyMaterial
               );
               oHeaderModel.setProperty("/CopyPlant", sCopyPlant);
-
-              /*
-               * No formatting/change to CopyAltBom input.
-               * We only use trimmed value for API call.
-               */
               oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
               return BomActionService.getAlternateBOMItems(
@@ -691,26 +745,26 @@ _applyPrepareCreateBomResponse: function (
             component: FormatterHelper.formatComponentForDisplay(
               oItem.BillOfMaterialComponent || ""
             ),
-         description:
-  oItem.ComponentDescription ||
-  oItem.componentDescription ||
-  oItem.ProductDescription ||
-  oItem.Description ||
-  "",
+            description:
+              oItem.ComponentDescription ||
+              oItem.componentDescription ||
+              oItem.ProductDescription ||
+              oItem.Description ||
+              "",
             quantity: FormatterHelper.formatQuantityForDisplay(
               oItem.BillOfMaterialItemQuantity
             ),
             uom: oItem.BillOfMaterialItemUnit || "",
             sortString: String(
               oItem.BOMItemSorter ||
-              oItem.BomItemSorter ||
-              oItem.bomItemSorter ||
-              oItem.SortString ||
-              oItem.sortString ||
-              oItem.Zcomb ||
-              oItem.ZCOMB ||
-              oItem.zcomb ||
-              ""
+                oItem.BomItemSorter ||
+                oItem.bomItemSorter ||
+                oItem.SortString ||
+                oItem.sortString ||
+                oItem.Zcomb ||
+                oItem.ZCOMB ||
+                oItem.zcomb ||
+                ""
             )
               .trim()
               .toUpperCase(),
@@ -769,6 +823,7 @@ _applyPrepareCreateBomResponse: function (
           }
 
           if (bResetValidation) {
+            this._invalidatePrepareValidation(oHeaderModel);
             HeaderModel.clearValidation(oHeaderModel);
           } else {
             this._clearCopiedItems();
@@ -800,6 +855,7 @@ _applyPrepareCreateBomResponse: function (
             );
 
             if (bResetValidation) {
+              that._invalidatePrepareValidation(oHeaderModel);
               HeaderModel.clearValidation(oHeaderModel);
             } else {
               that._clearCopiedItems();
@@ -817,6 +873,7 @@ _applyPrepareCreateBomResponse: function (
             that._setBackendMaterialProperty(sTargetProperty, sValue);
 
             if (bResetValidation) {
+              that._invalidatePrepareValidation(oHeaderModel);
               HeaderModel.clearValidation(oHeaderModel);
             } else {
               that._clearCopiedItems();
@@ -899,12 +956,16 @@ _applyPrepareCreateBomResponse: function (
 
               oHeaderModel.setProperty("/HeaderText", sStyleGroup);
 
+              this._invalidatePrepareValidation(oHeaderModel);
+
               HeaderModel.clearValidation(oHeaderModel);
               this._syncHeaderToRoute();
             }.bind(this)
           });
 
-          this._oHeaderTextVHDialog.setModel(this.getOwnerComponent().getModel());
+          this._oHeaderTextVHDialog.setModel(
+            this.getOwnerComponent().getModel()
+          );
 
           this._oHeaderTextVHDialog.bindAggregation("items", {
             path: "/style_group_vh",
@@ -988,16 +1049,12 @@ _applyPrepareCreateBomResponse: function (
 
         sBackendSearch = this._toBackendMaterial(sSearch).toUpperCase();
 
-        /*
-         * First try exact match.
-         */
         aMatches = this._aMaterialVHCache.filter(
           function (oItem) {
             var sProductNo = String(oItem.Product || "").toUpperCase();
             var sDisplayProduct = this._toDisplayMaterial(
               sProductNo
             ).toUpperCase();
-
             var sDescription = this._getMaterialDescription(oItem).toUpperCase();
 
             return (
@@ -1009,9 +1066,6 @@ _applyPrepareCreateBomResponse: function (
           }.bind(this)
         );
 
-        /*
-         * If exact not found, use contains match.
-         */
         if (!aMatches.length) {
           aMatches = this._aMaterialVHCache.filter(
             function (oItem) {
@@ -1019,7 +1073,6 @@ _applyPrepareCreateBomResponse: function (
               var sDisplayProduct = this._toDisplayMaterial(
                 sProductNo
               ).toUpperCase();
-
               var sDescription = this._getMaterialDescription(
                 oItem
               ).toUpperCase();
@@ -1038,10 +1091,6 @@ _applyPrepareCreateBomResponse: function (
           return Promise.resolve("");
         }
 
-        /*
-         * Pick first matching row.
-         * This matches live suggestion behavior.
-         */
         oMatched = aMatches[0];
         sProduct = this._toDisplayMaterial(oMatched.Product || "");
 
@@ -1109,6 +1158,7 @@ _applyPrepareCreateBomResponse: function (
             that._sMaterialTargetProperty = "/Material";
 
             if (sTargetProperty === "/Material") {
+              that._invalidatePrepareValidation(oHeaderModel);
               HeaderModel.clearValidation(oHeaderModel);
               that._clearCopiedItems();
               that._syncHeaderToRoute();
@@ -1140,7 +1190,6 @@ _applyPrepareCreateBomResponse: function (
           this,
           function (oData) {
             var oHeaderModel = that.getOwnerComponent().getModel("headerModel");
-
             var sTargetProperty = that._sPlantTargetProperty || "/Plant";
             var sPlant = that._toUpperTrim(oData.Plant);
 
@@ -1150,6 +1199,7 @@ _applyPrepareCreateBomResponse: function (
             that._sPlantTargetProperty = "/Plant";
 
             if (sTargetProperty === "/Plant") {
+              that._invalidatePrepareValidation(oHeaderModel);
               HeaderModel.clearValidation(oHeaderModel);
               that._clearCopiedItems();
               that._syncHeaderToRoute();
@@ -1163,10 +1213,6 @@ _applyPrepareCreateBomResponse: function (
           }
         );
       },
-
-      /* =========================================================== */
-      /* Live Suggestion Setup                                       */
-      /* =========================================================== */
 
       _initSuggestionModels: function () {
         this.getView().setModel(
@@ -1267,10 +1313,6 @@ _applyPrepareCreateBomResponse: function (
           return;
         }
 
-        /*
-         * Do not trim during live typing.
-         * This allows product descriptions with spaces.
-         */
         sRawValue = String(oInput.getValue() || "");
         sDisplayValue = sRawValue.toUpperCase();
 
@@ -1294,6 +1336,7 @@ _applyPrepareCreateBomResponse: function (
           );
 
         if (bResetValidation) {
+          this._invalidatePrepareValidation(oHeaderModel);
           HeaderModel.clearValidation(oHeaderModel);
         } else {
           this._clearCopiedItems();
@@ -1345,9 +1388,6 @@ _applyPrepareCreateBomResponse: function (
           return;
         }
 
-        /*
-         * Selecting by description must always put Product in input.
-         */
         sMaterial = this._toDisplayMaterial(sMaterial);
 
         oHeaderModel.setProperty(sTargetProperty, sMaterial);
@@ -1356,6 +1396,7 @@ _applyPrepareCreateBomResponse: function (
         this._setBackendMaterialProperty(sTargetProperty, sMaterial);
 
         if (bResetValidation) {
+          this._invalidatePrepareValidation(oHeaderModel);
           HeaderModel.clearValidation(oHeaderModel);
         } else {
           this._clearCopiedItems();
@@ -1382,7 +1423,6 @@ _applyPrepareCreateBomResponse: function (
             var sDisplayProduct = this._toDisplayMaterial(
               sProduct
             ).toUpperCase();
-
             var sDescription = this._getMaterialDescription(
               oItem
             ).toUpperCase();
@@ -1402,10 +1442,10 @@ _applyPrepareCreateBomResponse: function (
       _getMaterialDescription: function (oItem) {
         return String(
           oItem.ProductDescription ||
-          oItem.ProductName ||
-          oItem.MaterialDescription ||
-          oItem.Description ||
-          ""
+            oItem.ProductName ||
+            oItem.MaterialDescription ||
+            oItem.Description ||
+            ""
         );
       },
 
@@ -1442,6 +1482,7 @@ _applyPrepareCreateBomResponse: function (
           .setProperty("/items", this._filterPlantSuggestions(sValue));
 
         if (bResetValidation) {
+          this._invalidatePrepareValidation(oHeaderModel);
           HeaderModel.clearValidation(oHeaderModel);
         } else {
           this._clearCopiedItems();
@@ -1495,6 +1536,7 @@ _applyPrepareCreateBomResponse: function (
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
         if (bResetValidation) {
+          this._invalidatePrepareValidation(oHeaderModel);
           HeaderModel.clearValidation(oHeaderModel);
         } else {
           this._clearCopiedItems();
@@ -1541,10 +1583,6 @@ _applyPrepareCreateBomResponse: function (
         return aValues.join(" ").toUpperCase();
       },
 
-      /* =========================================================== */
-      /* Conversion Helpers                                          */
-      /* =========================================================== */
-
       _toUpperTrim: function (sValue) {
         return String(sValue || "").trim().toUpperCase();
       },
@@ -1552,20 +1590,12 @@ _applyPrepareCreateBomResponse: function (
       _looksLikeMaterialCode: function (sValue) {
         sValue = String(sValue || "").trim();
 
-        /*
-         * Material code normally has no spaces.
-         * Product description can have spaces.
-         */
         return !!sValue && sValue.indexOf(" ") === -1;
       },
 
       _toDisplayMaterial: function (sMaterial) {
         sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
 
-        /*
-         * Not used for live description typing.
-         * Used for product/manual product code formatting.
-         */
         sMaterial = String(sMaterial || "").trim().toUpperCase();
 
         if (/^0+\d+$/.test(sMaterial)) {
@@ -1626,14 +1656,11 @@ _applyPrepareCreateBomResponse: function (
         return this._toBackendMaterial(sMaterial);
       },
 
-   _toBackendMaterial: function (sMaterial) {
-  sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
-  return String(sMaterial || "").trim().toUpperCase();
-},
+      _toBackendMaterial: function (sMaterial) {
+        sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
 
-      /* =========================================================== */
-      /* Route Encoding / Error                                      */
-      /* =========================================================== */
+        return String(sMaterial || "").trim().toUpperCase();
+      },
 
       _encodeRouteValue: function (vValue) {
         return encodeURIComponent(

@@ -112,8 +112,12 @@
                                     <suggestionRows>
                                         <ColumnListItem>
                                             <cells>
-                                                <Text text="{materialSuggestModel>Product}" />
-                                                <Text text="{materialSuggestModel>ProductDescription}" />
+                                                <Text
+                                                    text="{materialSuggestModel>Product}"
+                                                />
+                                                <Text
+                                                    text="{materialSuggestModel>ProductDescription}"
+                                                />
                                             </cells>
                                         </ColumnListItem>
                                     </suggestionRows>
@@ -151,8 +155,12 @@
                                     <suggestionRows>
                                         <ColumnListItem>
                                             <cells>
-                                                <Text text="{plantSuggestModel>Plant}" />
-                                                <Text text="{plantSuggestModel>PlantName}" />
+                                                <Text
+                                                    text="{plantSuggestModel>Plant}"
+                                                />
+                                                <Text
+                                                    text="{plantSuggestModel>PlantName}"
+                                                />
                                             </cells>
                                         </ColumnListItem>
                                     </suggestionRows>
@@ -236,19 +244,19 @@
                             <VBox class="bomFieldBox">
                                 <Label text="Alternative BOM Text" />
 
-                             <Select
-    id="selHeaderText"
-    selectedKey="{headerModel>/HeaderText}"
-    change=".onHeaderFieldChange"
-    width="20rem"
-    forceSelection="true"
-    items="{styleGroupModel>/items}"
->
-    <core:Item
-        key="{styleGroupModel>StyleGroup}"
-        text="{styleGroupModel>Text}"
-    />
-</Select>
+                                <Select
+                                    id="selHeaderText"
+                                    selectedKey="{headerModel>/HeaderText}"
+                                    change=".onHeaderFieldChange"
+                                    width="20rem"
+                                    forceSelection="true"
+                                    items="{styleGroupModel>/items}"
+                                >
+                                    <core:Item
+                                        key="{styleGroupModel>StyleGroup}"
+                                        text="{styleGroupModel>Text}"
+                                    />
+                                </Select>
                             </VBox>
                         </VBox>
                     </HBox>
@@ -301,8 +309,12 @@
                             <suggestionRows>
                                 <ColumnListItem>
                                     <cells>
-                                        <Text text="{materialSuggestModel>Product}" />
-                                        <Text text="{materialSuggestModel>ProductDescription}" />
+                                        <Text
+                                            text="{materialSuggestModel>Product}"
+                                        />
+                                        <Text
+                                            text="{materialSuggestModel>ProductDescription}"
+                                        />
                                     </cells>
                                 </ColumnListItem>
                             </suggestionRows>
@@ -334,8 +346,12 @@
                             <suggestionRows>
                                 <ColumnListItem>
                                     <cells>
-                                        <Text text="{plantSuggestModel>Plant}" />
-                                        <Text text="{plantSuggestModel>PlantName}" />
+                                        <Text
+                                            text="{plantSuggestModel>Plant}"
+                                        />
+                                        <Text
+                                            text="{plantSuggestModel>PlantName}"
+                                        />
                                     </cells>
                                 </ColumnListItem>
                             </suggestionRows>
