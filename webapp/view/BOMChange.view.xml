@@ -117,14 +117,14 @@
 
                         <Input
                             id="inpChangePlant"
-                            value="{changeModel>/Plant}"
+                            value="{changeModel>/PlantDisplay}"
                             showValueHelp="true"
                             valueHelpRequest=".onPlantValueHelp"
                             showSuggestion="true"
                             liveChange=".onPlantLiveChange"
                             suggestionItemSelected=".onPlantSuggestionSelected"
                             suggestionRows="{plantSuggestModel>/items}"
-                            maxLength="4"
+                            maxLength="80"
                             placeholder="Enter Plant"
                         >
                             <suggestionColumns>

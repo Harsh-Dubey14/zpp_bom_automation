@@ -260,10 +260,11 @@ sap.ui.define(
         }
 
         if (sId.indexOf("inpPlant") !== -1) {
-          var sPlant = this._toUpperTrim(oSource.getValue());
+          var sPlant = this._extractPlantCode(oSource.getValue());
 
-          oSource.setValue(sPlant);
           oHeaderModel.setProperty("/Plant", sPlant);
+          oHeaderModel.setProperty("/PlantName", "");
+          oHeaderModel.setProperty("/PlantDisplay", sPlant);
         }
       },
 
@@ -293,10 +294,11 @@ sap.ui.define(
         }
 
         if (sId.indexOf("inpCopyPlant") !== -1) {
-          var sCopyPlant = this._toUpperTrim(oSource.getValue());
+          var sCopyPlant = this._extractPlantCode(oSource.getValue());
 
-          oSource.setValue(sCopyPlant);
           oHeaderModel.setProperty("/CopyPlant", sCopyPlant);
+          oHeaderModel.setProperty("/CopyPlantName", "");
+          oHeaderModel.setProperty("/CopyPlantDisplay", sCopyPlant);
         }
       },
 
@@ -541,6 +543,13 @@ sap.ui.define(
           oPrepareResponse.Material || ""
         );
         oHeaderModel.setProperty("/Plant", oPrepareResponse.Plant || "");
+        oHeaderModel.setProperty(
+          "/PlantDisplay",
+          this._formatPlantDisplay(
+            oPrepareResponse.Plant || "",
+            oHeaderModel.getProperty("/PlantName") || ""
+          )
+        );
         oHeaderModel.setProperty(
           "/HeaderText",
           oPrepareResponse.AltText ||
@@ -1189,16 +1198,15 @@ sap.ui.define(
         ValueHelpHelper.openPlantValueHelp(
           this,
           function (oData) {
-            var oHeaderModel = that.getOwnerComponent().getModel("headerModel");
             var sTargetProperty = that._sPlantTargetProperty || "/Plant";
-            var sPlant = that._toUpperTrim(oData.Plant);
 
-            oHeaderModel.setProperty(sTargetProperty, sPlant);
-            oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+            that._setPlantSelection(sTargetProperty, oData);
 
             that._sPlantTargetProperty = "/Plant";
 
             if (sTargetProperty === "/Plant") {
+              var oHeaderModel = that.getOwnerComponent().getModel("headerModel");
+
               that._invalidatePrepareValidation(oHeaderModel);
               HeaderModel.clearValidation(oHeaderModel);
               that._clearCopiedItems();
@@ -1465,16 +1473,23 @@ sap.ui.define(
         var oInput = oEvent.getSource();
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
         var sValue;
+        var sDisplayProperty;
+        var sNameProperty;
 
         if (!oHeaderModel) {
           return;
         }
 
-        sValue = this._toUpperTrim(oInput.getValue());
+        sValue = this._extractPlantCode(oInput.getValue());
 
         oInput.setValue(sValue);
 
         oHeaderModel.setProperty(sTargetProperty, sValue);
+        sDisplayProperty = this._getPlantDisplayProperty(sTargetProperty);
+        sNameProperty = this._getPlantNameProperty(sTargetProperty);
+
+        oHeaderModel.setProperty(sDisplayProperty, sValue);
+        oHeaderModel.setProperty(sNameProperty, "");
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
         this.getView()
@@ -1530,10 +1545,14 @@ sap.ui.define(
           return;
         }
 
-        sPlant = this._toUpperTrim(sPlant);
+        if (!oData) {
+          oData = {
+            Plant: sPlant,
+            PlantName: ""
+          };
+        }
 
-        oHeaderModel.setProperty(sTargetProperty, sPlant);
-        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+        this._setPlantSelection(sTargetProperty, oData);
 
         if (bResetValidation) {
           this._invalidatePrepareValidation(oHeaderModel);
@@ -1585,6 +1604,67 @@ sap.ui.define(
 
       _toUpperTrim: function (sValue) {
         return String(sValue || "").trim().toUpperCase();
+      },
+
+      _extractPlantCode: function (sValue) {
+        return this._toUpperTrim(String(sValue || "").split(" - ")[0]);
+      },
+
+      _getPlantName: function (oData) {
+        return String(
+          oData.PlantName ||
+            oData.plantName ||
+            oData.Name ||
+            oData.PlantDescription ||
+            ""
+        ).trim();
+      },
+
+      _formatPlantDisplay: function (sPlant, sPlantName) {
+        sPlant = this._toUpperTrim(sPlant);
+        sPlantName = String(sPlantName || "").trim();
+
+        if (!sPlant) {
+          return "";
+        }
+
+        if (!sPlantName) {
+          return sPlant;
+        }
+
+        return sPlant + " - " + sPlantName;
+      },
+
+      _getPlantDisplayProperty: function (sPlantProperty) {
+        return sPlantProperty === "/CopyPlant"
+          ? "/CopyPlantDisplay"
+          : "/PlantDisplay";
+      },
+
+      _getPlantNameProperty: function (sPlantProperty) {
+        return sPlantProperty === "/CopyPlant"
+          ? "/CopyPlantName"
+          : "/PlantName";
+      },
+
+      _setPlantSelection: function (sPlantProperty, oData) {
+        var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+        var sPlant = this._toUpperTrim(oData && oData.Plant);
+        var sPlantName = this._getPlantName(oData || {});
+        var sDisplayProperty = this._getPlantDisplayProperty(sPlantProperty);
+        var sNameProperty = this._getPlantNameProperty(sPlantProperty);
+
+        if (!oHeaderModel) {
+          return;
+        }
+
+        oHeaderModel.setProperty(sPlantProperty, sPlant);
+        oHeaderModel.setProperty(sNameProperty, sPlantName);
+        oHeaderModel.setProperty(
+          sDisplayProperty,
+          this._formatPlantDisplay(sPlant, sPlantName)
+        );
+        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
       },
 
       _looksLikeMaterialCode: function (sValue) {

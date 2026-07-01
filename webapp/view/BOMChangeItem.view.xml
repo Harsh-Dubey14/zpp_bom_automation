@@ -25,6 +25,8 @@
                 <Panel
                     id="changeHeaderForm"
                     headerText="Existing BOM Header Information"
+                    expandable="true"
+                    expanded="true"
                     width="100%"
                     class="bomHeaderPanel sapUiSmallMarginBottom"
                 >
@@ -48,7 +50,7 @@
 
                             <VBox class="bomFieldBox">
                                 <Label text="Plant" />
-                                <Text text="{headerModel>/Plant}" />
+                                <Text text="{= ${headerModel>/PlantDisplay} || ${headerModel>/Plant} }" />
                             </VBox>
 
                             <VBox class="bomFieldBox">

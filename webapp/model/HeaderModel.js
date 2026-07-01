@@ -15,6 +15,8 @@ sap.ui.define(
         return {
           Material: "",
           Plant: "",
+          PlantName: "",
+          PlantDisplay: "",
           BomUsage: Constants.BOM_USAGE,
           AltBom: "",
           BaseQty: Constants.DEFAULTS.BASE_QTY,
@@ -25,6 +27,8 @@ sap.ui.define(
 
           CopyMaterial: "",
           CopyPlant: "",
+          CopyPlantName: "",
+          CopyPlantDisplay: "",
           CopyAltBom: "",
 
           IsValidated: false,
@@ -38,6 +42,8 @@ sap.ui.define(
         return {
           Material: oQuery.Material || "",
           Plant: oQuery.Plant || "",
+          PlantName: oQuery.PlantName || "",
+          PlantDisplay: oQuery.PlantDisplay || oQuery.Plant || "",
           BomUsage: Constants.BOM_USAGE,
           AltBom: oQuery.AltBom || "",
           BaseQty: oQuery.BaseQty
@@ -50,6 +56,8 @@ sap.ui.define(
 
           CopyMaterial: oQuery.CopyMaterial || "",
           CopyPlant: oQuery.CopyPlant || "",
+          CopyPlantName: oQuery.CopyPlantName || "",
+          CopyPlantDisplay: oQuery.CopyPlantDisplay || oQuery.CopyPlant || "",
           CopyAltBom: oQuery.CopyAltBom || "",
 
           IsValidated: oQuery.IsValidated === "true",
@@ -68,6 +76,28 @@ sap.ui.define(
 
           if (oExistingModel.getProperty("/HeaderText") === undefined) {
             oExistingModel.setProperty("/HeaderText", "");
+          }
+
+          if (oExistingModel.getProperty("/PlantName") === undefined) {
+            oExistingModel.setProperty("/PlantName", "");
+          }
+
+          if (oExistingModel.getProperty("/PlantDisplay") === undefined) {
+            oExistingModel.setProperty(
+              "/PlantDisplay",
+              oExistingModel.getProperty("/Plant") || ""
+            );
+          }
+
+          if (oExistingModel.getProperty("/CopyPlantName") === undefined) {
+            oExistingModel.setProperty("/CopyPlantName", "");
+          }
+
+          if (oExistingModel.getProperty("/CopyPlantDisplay") === undefined) {
+            oExistingModel.setProperty(
+              "/CopyPlantDisplay",
+              oExistingModel.getProperty("/CopyPlant") || ""
+            );
           }
 
           oView.setModel(oExistingModel, "headerModel");

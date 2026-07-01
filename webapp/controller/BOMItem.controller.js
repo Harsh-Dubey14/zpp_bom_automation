@@ -184,6 +184,10 @@ sap.ui.define(
 
       onSave: async function () {
   var oResultModel = this.getView().getModel("resultModel");
+  var oHeaderPanel = this.byId("headerForm");
+  if (oHeaderPanel) {
+    oHeaderPanel.setExpanded(true);
+  }
 
   if (this._bSaveInProgress) {
     MessageToast.show("Posting is already in progress. Please wait.");

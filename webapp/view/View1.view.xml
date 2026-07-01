@@ -132,14 +132,14 @@
 
                                 <Input
                                     id="inpPlant"
-                                    value="{headerModel>/Plant}"
+                                    value="{headerModel>/PlantDisplay}"
                                     showValueHelp="true"
                                     valueHelpRequest=".onPlantValueHelp"
                                     showSuggestion="true"
                                     liveChange=".onPlantLiveChange"
                                     suggestionItemSelected=".onPlantSuggestionSelected"
                                     suggestionRows="{plantSuggestModel>/items}"
-                                    maxLength="4"
+                                    maxLength="80"
                                     width="20rem"
                                     placeholder="Enter Plant"
                                 >
@@ -324,14 +324,14 @@
 
                         <Input
                             id="inpCopyPlant"
-                            value="{headerModel>/CopyPlant}"
+                            value="{headerModel>/CopyPlantDisplay}"
                             showValueHelp="true"
                             valueHelpRequest=".onCopyPlantValueHelp"
                             showSuggestion="true"
                             liveChange=".onCopyPlantLiveChange"
                             suggestionItemSelected=".onCopyPlantSuggestionSelected"
                             suggestionRows="{plantSuggestModel>/items}"
-                            maxLength="4"
+                            maxLength="80"
                             placeholder="Enter Copy Plant"
                         >
                             <suggestionColumns>

@@ -57,6 +57,8 @@ sap.ui.define(
          Material: "",
 BackendMaterial: "",
 Plant: "",
+PlantName: "",
+PlantDisplay: "",
           BomUsage: Constants.BOM_USAGE || "1",
           AltBom: "",
 
@@ -138,6 +140,13 @@ Plant: "",
 
     oChangeModel.setProperty("/Material", this._toDisplayMaterial(oData.Material));
     oChangeModel.setProperty("/Plant", sPlant);
+    oChangeModel.setProperty(
+      "/PlantDisplay",
+      this._formatPlantDisplay(
+        sPlant,
+        oChangeModel.getProperty("/PlantName") || ""
+      )
+    );
     oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
     await this._fetchBomChangeItems(
@@ -145,6 +154,8 @@ Plant: "",
         searchMode: Constants.SEARCH_MODE.MATERIAL,
         Material: sBackendMaterial,
         Plant: sPlant,
+        PlantName: oChangeModel.getProperty("/PlantName") || "",
+        PlantDisplay: oChangeModel.getProperty("/PlantDisplay") || sPlant,
         BillOfMaterialVariantUsage: Constants.BOM_USAGE || "1",
         BillOfMaterialVariant: String(oData.AltBom || "").trim()
       },
@@ -223,7 +234,11 @@ Plant: "",
         }
 
         var aRows = this._convertBomChangeItemsToRows(aItems);
-        var oHeaderData = this._buildChangeHeaderData(aItems[0], oRequest);
+        var oHeaderRequest = await this._enrichRequestWithPlantDisplay(
+          oRequest,
+          aItems[0]
+        );
+        var oHeaderData = this._buildChangeHeaderData(aItems[0], oHeaderRequest);
 
         oChangeModel.setProperty("/FetchedItems", aRows);
         oChangeModel.setProperty("/HeaderData", oHeaderData);
@@ -440,6 +455,19 @@ Plant: "",
             oRequest.Plant ||
             "",
 
+          PlantName:
+            oRequest.PlantName ||
+            "",
+
+          PlantDisplay:
+            oRequest.PlantDisplay ||
+            this._formatPlantDisplay(
+              oFirstItem.Plant ||
+                oRequest.Plant ||
+                "",
+              oRequest.PlantName || ""
+            ),
+
           BomUsage:
             oFirstItem.BillOfMaterialVariantUsage ||
             oRequest.BillOfMaterialVariantUsage ||
@@ -531,6 +559,67 @@ Plant: "",
         };
       },
 
+      _enrichRequestWithPlantDisplay: async function (oRequest, oFirstItem) {
+        var sPlant = this._toUpperTrim(
+          (oFirstItem && oFirstItem.Plant) ||
+            (oRequest && oRequest.Plant) ||
+            ""
+        );
+        var sPlantName;
+
+        oRequest = oRequest || {};
+
+        if (!sPlant || oRequest.PlantDisplay) {
+          return oRequest;
+        }
+
+        sPlantName = oRequest.PlantName || await this._getPlantNameByCode(sPlant);
+
+        return Object.assign({}, oRequest, {
+          Plant: sPlant,
+          PlantName: sPlantName,
+          PlantDisplay: this._formatPlantDisplay(sPlant, sPlantName)
+        });
+      },
+
+      _getPlantNameByCode: async function (sPlant) {
+        var oMatchedPlant;
+
+        sPlant = this._toUpperTrim(sPlant);
+
+        if (!sPlant) {
+          return "";
+        }
+
+        try {
+          await this._ensurePlantCacheLoaded();
+        } catch (oError) {
+          void oError;
+
+          return "";
+        }
+
+        oMatchedPlant = (this._aPlantVHCache || []).find(
+          function (oItem) {
+            return this._toUpperTrim(oItem.Plant) === sPlant;
+          }.bind(this)
+        );
+
+        return oMatchedPlant ? this._getPlantName(oMatchedPlant) : "";
+      },
+
+      _ensurePlantCacheLoaded: function () {
+        if (this._aPlantVHCache && this._aPlantVHCache.length) {
+          return Promise.resolve();
+        }
+
+        return ValueHelpService.loadPlantVHData(this).then(
+          function (oPlantVHModel) {
+            this._aPlantVHCache = this._getValueHelpRows(oPlantVHModel);
+          }.bind(this)
+        );
+      },
+
       _formatDateForDisplay: function (vDate) {
         if (!vDate) {
           return "";
@@ -611,10 +700,9 @@ Plant: "",
   var that = this;
 
   ValueHelpHelper.openPlantValueHelp(this, function (oData) {
+    that._setPlantSelection(oData);
+
     var oChangeModel = that.getView().getModel("changeModel");
-
-    oChangeModel.setProperty("/Plant", that._toUpperTrim(oData.Plant || ""));
-
     oChangeModel.setProperty("/CanContinue", false);
     oChangeModel.setProperty("/FetchedItems", []);
     oChangeModel.setProperty("/HeaderData", null);
@@ -1002,11 +1090,13 @@ onPlantLiveChange: function (oEvent) {
     return;
   }
 
-  sValue = this._toUpperTrim(oInput.getValue());
+  sValue = this._extractPlantCode(oInput.getValue());
 
   oInput.setValue(sValue);
 
   oChangeModel.setProperty("/Plant", sValue);
+  oChangeModel.setProperty("/PlantName", "");
+  oChangeModel.setProperty("/PlantDisplay", sValue);
   oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
   this.getView()
@@ -1045,10 +1135,14 @@ onPlantSuggestionSelected: function (oEvent) {
     return;
   }
 
-  sPlant = this._toUpperTrim(sPlant);
+  if (!oData) {
+    oData = {
+      Plant: sPlant,
+      PlantName: ""
+    };
+  }
 
-  oChangeModel.setProperty("/Plant", sPlant);
-  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+  this._setPlantSelection(oData);
 
   this._clearFetchedData();
 },
@@ -1093,6 +1187,53 @@ _getSearchableTextFromObject: function (oObject) {
 
 _toUpperTrim: function (sValue) {
   return String(sValue || "").trim().toUpperCase();
+},
+
+_extractPlantCode: function (sValue) {
+  return this._toUpperTrim(String(sValue || "").split(" - ")[0]);
+},
+
+_getPlantName: function (oData) {
+  return String(
+    oData.PlantName ||
+      oData.plantName ||
+      oData.Name ||
+      oData.PlantDescription ||
+      ""
+  ).trim();
+},
+
+_formatPlantDisplay: function (sPlant, sPlantName) {
+  sPlant = this._toUpperTrim(sPlant);
+  sPlantName = String(sPlantName || "").trim();
+
+  if (!sPlant) {
+    return "";
+  }
+
+  if (!sPlantName) {
+    return sPlant;
+  }
+
+  return sPlant + " - " + sPlantName;
+},
+
+_setPlantSelection: function (oData) {
+  var oChangeModel = this.getView().getModel("changeModel");
+  var sPlant = this._toUpperTrim(oData && oData.Plant);
+  var sPlantName = this._getPlantName(oData || {});
+
+  if (!oChangeModel) {
+    return;
+  }
+
+  oChangeModel.setProperty("/Plant", sPlant);
+  oChangeModel.setProperty("/PlantName", sPlantName);
+  oChangeModel.setProperty(
+    "/PlantDisplay",
+    this._formatPlantDisplay(sPlant, sPlantName)
+  );
+  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 },
 
 _looksLikeMaterialCode: function (sValue) {

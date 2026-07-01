@@ -141,6 +141,25 @@ sap.ui.define(
                         oFirstItem.plant ||
                         "",
 
+                    PlantName:
+                        oHeaderData.PlantName ||
+                        oHeaderData.plantName ||
+                        "",
+
+                    PlantDisplay:
+                        oHeaderData.PlantDisplay ||
+                        oHeaderData.plantDisplay ||
+                        this._formatPlantDisplay(
+                            oHeaderData.Plant ||
+                                oHeaderData.plant ||
+                                oFirstItem.Plant ||
+                                oFirstItem.plant ||
+                                "",
+                            oHeaderData.PlantName ||
+                                oHeaderData.plantName ||
+                                ""
+                        ),
+
                     BomUsage:
                         oHeaderData.BomUsage ||
                         oHeaderData.BillOfMaterialVariantUsage ||
@@ -1091,6 +1110,11 @@ sap.ui.define(
                     return;
                 }
 
+                var oHeaderPanel = this.byId("changeHeaderForm");
+                if (oHeaderPanel) {
+                    oHeaderPanel.setExpanded(true);
+                }
+
                 this._bPostInProgress = true;
 
                 this._setResultBusy(oResultModel, "Posting BOM changes...");
@@ -1887,6 +1911,21 @@ sap.ui.define(
 
             _cleanSortString: function (sSortString) {
                 return String(sSortString || "").trim().toUpperCase();
+            },
+
+            _formatPlantDisplay: function (sPlant, sPlantName) {
+                sPlant = String(sPlant || "").trim().toUpperCase();
+                sPlantName = String(sPlantName || "").trim();
+
+                if (!sPlant) {
+                    return "";
+                }
+
+                if (!sPlantName) {
+                    return sPlant;
+                }
+
+                return sPlant + " - " + sPlantName;
             },
 
             _isBulkBackendActionSuccess: function (oResponse) {

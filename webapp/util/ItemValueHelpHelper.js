@@ -289,7 +289,7 @@ sap.ui.define(
 
           if (sSizes) {
             aFilters.push(
-              new Filter("sizes", FilterOperator.Contains, sSizes)
+              new Filter("sizes", FilterOperator.EQ, sSizes)
             );
           }
 
