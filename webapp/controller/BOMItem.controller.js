@@ -976,7 +976,9 @@ sap.ui.define(
       },
 
     _toBackendMaterial: function (sMaterial) {
-  return this._normalizeMaterialInput(sMaterial);
+  return String(this._normalizeMaterialInput(sMaterial) || "")
+    .trim()
+    .toUpperCase();
 },
 
       _clearBomDraftData: function () {
