@@ -1670,7 +1670,7 @@ sap.ui.define(
       _looksLikeMaterialCode: function (sValue) {
         sValue = String(sValue || "").trim();
 
-        return !!sValue && sValue.indexOf(" ") === -1;
+        return !!sValue;
       },
 
       _toDisplayMaterial: function (sMaterial) {
