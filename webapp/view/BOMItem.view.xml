@@ -172,6 +172,7 @@
                             <MenuButton
                                 text="Excel"
                                 icon="sap-icon://excel-attachment"
+                                type="Accept"
                                 enabled="{resultModel>/Editable}"
                             >
                                 <menu>
