@@ -4,6 +4,10 @@ specVersion: "4.0"
 metadata:
   name: zppbomautomation
 type: application
+builder:
+  componentPreload:
+    excludes:
+      - "zppbomautomation/thirdparty/**"
 server:
   customMiddleware:
     - name: fiori-tools-proxy

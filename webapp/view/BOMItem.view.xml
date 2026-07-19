@@ -4,6 +4,7 @@
     xmlns="sap.m"
     xmlns:f="sap.ui.layout.form"
     xmlns:core="sap.ui.core"
+    xmlns:u="sap.ui.unified"
     displayBlock="true"
 >
     <Page
@@ -12,6 +13,39 @@
         showNavButton="true"
         navButtonPress=".onNavBack"
     >
+        <dependents>
+            <Dialog
+                id="bomExcelUploadDialog"
+                title="Upload BOM Item Template"
+                contentWidth="32rem"
+            >
+                <content>
+                    <VBox class="sapUiMediumMargin">
+                        <Text
+                            text="Select the completed Excel template (.xlsx or .xls). Existing BOM items will be retained."
+                            wrapping="true"
+                            class="sapUiSmallMarginBottom"
+                        />
+                        <u:FileUploader
+                            id="bomExcelUploader"
+                            width="100%"
+                            buttonText="Browse"
+                            placeholder="Choose Excel file"
+                            fileType="xlsx,xls"
+                            sameFilenameAllowed="true"
+                            change=".onExcelFileSelected"
+                        />
+                    </VBox>
+                </content>
+                <endButton>
+                    <Button
+                        text="Cancel"
+                        press=".onCloseExcelUploadDialog"
+                    />
+                </endButton>
+            </Dialog>
+        </dependents>
+
         <content>
             <VBox class="bomPageContent">
                 <MessageStrip
@@ -134,6 +168,29 @@
                                 press=".onAddRow"
                                 enabled="{resultModel>/Editable}"
                             />
+
+                            <MenuButton
+                                text="Excel"
+                                icon="sap-icon://excel-attachment"
+                                enabled="{resultModel>/Editable}"
+                            >
+                                <menu>
+                                    <Menu>
+                                        <items>
+                                            <MenuItem
+                                                text="Download Template"
+                                                icon="sap-icon://download"
+                                                press=".onDownloadExcelTemplate"
+                                            />
+                                            <MenuItem
+                                                text="Upload Template"
+                                                icon="sap-icon://upload"
+                                                press=".onUploadExcelTemplate"
+                                            />
+                                        </items>
+                                    </Menu>
+                                </menu>
+                            </MenuButton>
 
                             <Button
                                 text="Delete"

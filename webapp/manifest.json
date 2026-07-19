@@ -68,7 +68,8 @@
         "sap.ui.core": {},
         "sap.ui.layout": {},
         "sap.ui.comp": {},
-        "sap.ui.export": {}
+        "sap.ui.export": {},
+        "sap.ui.unified": {}
       }
     },
     "contentDensities": {
@@ -93,6 +94,11 @@
       }
     },
     "resources": {
+      "js": [
+        {
+          "uri": "thirdparty/xlsx.full.min.js"
+        }
+      ],
       "css": [
         {
           "uri": "css/style.css"

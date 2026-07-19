@@ -5,6 +5,9 @@ metadata:
   name: zppbomautomation
 type: application
 builder:
+  componentPreload:
+    excludes:
+      - "zppbomautomation/thirdparty/**"
   resources:
     excludes:
       - /test/**
