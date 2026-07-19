@@ -218,11 +218,32 @@
                                     value="{itemModel>component}"
                                     showValueHelp="true"
                                     valueHelpRequest=".onComponentValueHelp"
+                                    showSuggestion="true"
+                                    filterSuggests="false"
+                                    startSuggestion="1"
+                                    suggest=".onComponentSuggest"
+                                    suggestionItemSelected=".onComponentSuggestionSelected"
+                                    suggestionRows="{componentSuggestModel>/items}"
                                     change=".onComponentChange"
                                     editable="{resultModel>/Editable}"
                                     maxLength="40"
                                     placeholder="Enter Component"
-                                />
+                                >
+                                    <suggestionColumns>
+                                        <Column><Text text="Component" /></Column>
+                                        <Column><Text text="Description" /></Column>
+                                        <Column><Text text="UoM" /></Column>
+                                    </suggestionColumns>
+                                    <suggestionRows>
+                                        <ColumnListItem>
+                                            <cells>
+                                                <Text text="{componentSuggestModel>component}" />
+                                                <Text text="{componentSuggestModel>ProductDescription}" />
+                                                <Text text="{componentSuggestModel>uom}" />
+                                            </cells>
+                                        </ColumnListItem>
+                                    </suggestionRows>
+                                </Input>
 
                                 <TextArea
                                     value="{itemModel>description}"

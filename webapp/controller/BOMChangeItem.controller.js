@@ -859,6 +859,46 @@ sap.ui.define(
                     });
             },
 
+            onComponentSuggest: function (oEvent) {
+                var that = this;
+                var sQuery = String(oEvent.getParameter("suggestValue") || "")
+                    .trim()
+                    .toUpperCase();
+                var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
+                var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+
+                if (!sPlant) {
+                    this.getView().setModel(new JSONModel({ items: [] }), "componentSuggestModel");
+                    return;
+                }
+
+                ItemScreenService.loadComponentVHData(this, sPlant).then(function (oModel) {
+                    var aItems = (oModel.getProperty("/items") || []).filter(function (oItem) {
+                        var sComponent = String(oItem.component || "").toUpperCase();
+                        var sDescription = ItemScreenService.getComponentDescription(oItem).toUpperCase();
+                        return !sQuery || sComponent.indexOf(sQuery) !== -1 || sDescription.indexOf(sQuery) !== -1;
+                    }).slice(0, 50);
+
+                    that.getView().setModel(new JSONModel({ items: aItems }), "componentSuggestModel");
+                }).catch(function () {
+                    that.getView().setModel(new JSONModel({ items: [] }), "componentSuggestModel");
+                });
+            },
+
+            onComponentSuggestionSelected: function (oEvent) {
+                var oRow = oEvent.getParameter("selectedRow");
+                var oData = oRow && oRow.getBindingContext("componentSuggestModel")
+                    ? oRow.getBindingContext("componentSuggestModel").getObject()
+                    : null;
+
+                if (!oData) {
+                    return;
+                }
+
+                this._oCurrentComponentContext = oEvent.getSource().getBindingContext("itemModel");
+                this._applyComponentSelection(oData);
+            },
+
             _applyComponentSelection: function (oData) {
                 var oContext = this._oCurrentComponentContext;
 
