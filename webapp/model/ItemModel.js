@@ -20,6 +20,7 @@ sap.ui.define(
           item: FormatterHelper.formatItemNumber(iItemNo || 1),
           component: "",
           description: "",
+          remarks: "",
           quantity: "",
           uom: "",
           sortString: "",

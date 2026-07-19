@@ -44,7 +44,7 @@ sap.ui.define(
       },
 
       getComponentUom: function (oData) {
-        return (
+        return String(
           oData.uom ||
           oData.Uom ||
           oData.UOM ||
@@ -53,18 +53,18 @@ sap.ui.define(
           oData.BillOfMaterialItemUnit ||
           oData.BillOfMaterialItemUnit_Text ||
           ""
-        );
+        ).substring(0, 3);
       },
 
       getComponentDescription: function (oData) {
-        return (
+        return String(
           oData.ProductDescription ||
           oData.productDescription ||
           oData.Description ||
           oData.description ||
           oData.MaterialDescription ||
           ""
-        );
+        ).substring(0, 40);
       },
 
       checkComponentPlantExtension: function (oODataModel, sComponent, sPlant) {
@@ -404,15 +404,18 @@ sap.ui.define(
 
     _Item: aItems.map(function (oItem, iIndex) {
       return {
-        ItemNo: FormatterHelper.formatItemNumber(oItem.item || iIndex + 1),
-        ItemCategory: oItem.category || Constants.ITEM_CATEGORY,
-        Component: oItem.component,
+        ItemNo: String(
+          parseInt(oItem.item || iIndex + 1, 10) || iIndex + 1
+        ).padStart(4, "0"),
+        ItemCategory: Constants.ITEM_CATEGORY,
+        Component: String(oItem.component || "").substring(0, 40),
         Quantity: Number(oItem.quantity),
+        ItemText: String(oItem.remarks || "").substring(0, 40),
 
         // Item UOM already comes from row payload
-        Uom: oItem.uom || "",
+        Uom: String(oItem.uom || "").substring(0, 3),
 
-        SortString: oItem.sortString || ""
+        SortString: String(oItem.sortString || "").substring(0, 10)
       };
     })
   };

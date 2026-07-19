@@ -337,12 +337,17 @@ PlantDisplay: "",
               oItem.BillOfMaterialComponent || oItem.Component || ""
             ),
 
-            description:
-              oItem.BOMItemDescription ||
+            description: String(
               oItem.ProductDescription ||
               oItem.ComponentDescription ||
+              ""
+            ).substring(0, 40),
+
+            remarks: String(
+              oItem.BOMItemDescription ||
               oItem.ItemText ||
-              "",
+              ""
+            ).substring(0, 40),
 
             quantity:
               oItem.BillOfMaterialItemQuantity !== undefined &&

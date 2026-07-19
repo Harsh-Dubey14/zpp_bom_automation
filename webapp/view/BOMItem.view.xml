@@ -153,14 +153,14 @@
 
                     <columns>
                         <Column
-                            width="5rem"
+                            width="4.5rem"
                             hAlign="Center"
                         >
                             <Text text="Item" />
                         </Column>
 
                         <Column
-                            width="14rem"
+                            width="13rem"
                             minScreenWidth="Tablet"
                             demandPopin="true"
                         >
@@ -168,7 +168,7 @@
                         </Column>
 
                         <Column
-                            width="24rem"
+                            width="16rem"
                             minScreenWidth="Tablet"
                             demandPopin="true"
                         >
@@ -176,7 +176,7 @@
                         </Column>
 
                         <Column
-                            width="8rem"
+                            width="7rem"
                             hAlign="End"
                             minScreenWidth="Tablet"
                             demandPopin="true"
@@ -185,7 +185,7 @@
                         </Column>
 
                         <Column
-                            width="6rem"
+                            width="4.5rem"
                             minScreenWidth="Desktop"
                             demandPopin="true"
                         >
@@ -193,7 +193,7 @@
                         </Column>
 
                         <Column
-                            width="10rem"
+                            width="9rem"
                             minScreenWidth="Desktop"
                             demandPopin="true"
                         >
@@ -201,12 +201,11 @@
                         </Column>
 
                         <Column
-                            width="6rem"
-                            hAlign="Center"
-                            minScreenWidth="Desktop"
+                            width="16rem"
+                            minScreenWidth="Tablet"
                             demandPopin="true"
                         >
-                            <Text text="Category" />
+                            <Text text="Remarks" />
                         </Column>
                     </columns>
 
@@ -228,8 +227,9 @@
                                 <TextArea
                                     value="{itemModel>description}"
                                     editable="false"
+                                    maxLength="40"
                                     growing="true"
-                                    growingMaxLines="10"
+                                    growingMaxLines="3"
                                     rows="1"
                                     width="100%"
                                 />
@@ -245,10 +245,11 @@
                                 />
                                 <Input
                                     value="{itemModel>uom}"
-                                    width="5rem"
+                                    width="100%"
                                     editable="{resultModel>/Editable}"
                                     showValueHelp="true"
                                     valueHelpRequest=".onUomValueHelp"
+                                    maxLength="3"
                                     placeholder="UoM"
                                     liveChange=".onUomManualInputBlock"
                                 />
@@ -264,11 +265,10 @@
                                 />
 
                                 <Input
-                                    value="{itemModel>category}"
-                                    width="3rem"
-                                    editable="false"
-                                    maxLength="1"
-                                    placeholder="Category"
+                                    value="{itemModel>remarks}"
+                                    editable="{resultModel>/Editable}"
+                                    maxLength="40"
+                                    placeholder="Enter Remarks"
                                 />
                             </cells>
                         </ColumnListItem>

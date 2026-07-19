@@ -753,17 +753,25 @@ sap.ui.define(
             item: FormatterHelper.formatItemNumber(iIndex + 1),
             component: FormatterHelper.formatComponentForDisplay(
               oItem.BillOfMaterialComponent || ""
-            ),
-            description:
+            ).substring(0, 40),
+            description: String(
               oItem.ComponentDescription ||
               oItem.componentDescription ||
               oItem.ProductDescription ||
               oItem.Description ||
-              "",
+              ""
+            ).substring(0, 40),
+            remarks: String(
+              oItem.ItemText ||
+                oItem.itemText ||
+                oItem.BOMItemDescription ||
+                oItem.bomItemDescription ||
+                ""
+            ).substring(0, 40),
             quantity: FormatterHelper.formatQuantityForDisplay(
               oItem.BillOfMaterialItemQuantity
             ),
-            uom: oItem.BillOfMaterialItemUnit || "",
+            uom: String(oItem.BillOfMaterialItemUnit || "").substring(0, 3),
             sortString: String(
               oItem.BOMItemSorter ||
                 oItem.BomItemSorter ||
@@ -776,8 +784,8 @@ sap.ui.define(
                 ""
             )
               .trim()
-              .toUpperCase(),
-            category: "L",
+              .toUpperCase()
+              .substring(0, 10),
             originalItemNumber: oItem.BillOfMaterialItemNumber || "",
             isCopied: true
           };

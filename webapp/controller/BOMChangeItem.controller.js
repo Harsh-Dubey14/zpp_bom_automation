@@ -493,6 +493,10 @@ sap.ui.define(
                 this._markRowChangedFromEvent(oEvent);
             },
 
+            onRemarksChange: function (oEvent) {
+                this._markRowChangedFromEvent(oEvent);
+            },
+
             onUomChange: function (oEvent) {
                 this.onUomManualInputBlock(oEvent);
             },
@@ -1456,19 +1460,21 @@ sap.ui.define(
                         oItem.item || "",
 
                     BillOfMaterialComponent:
-                        this._toBackendMaterial(oItem.component || ""),
+                        this._toBackendMaterial(oItem.component || "").substring(0, 40),
 
                     BillOfMaterialItemQuantity:
                         Number(oItem.quantity || 0),
 
                     BillOfMaterialItemUnit:
-                        String(oItem.uom || "").trim().toUpperCase(),
+                        String(oItem.uom || "").trim().toUpperCase().substring(0, 3),
 
                     BOMItemDescription:
-                        oItem.description || "",
+                        String(oItem.remarks || "").substring(0, 40),
 
                     BOMItemSorter:
-                        this._cleanSortString(oItem.sortStringValue || oItem.sortString || ""),
+                        this._cleanSortString(
+                            oItem.sortStringValue || oItem.sortString || ""
+                        ).substring(0, 10),
 
                     ChangeMode:
                         sChangeMode
@@ -1615,12 +1621,8 @@ sap.ui.define(
                             oItem.component ||
                             "";
 
-                        oRow.description =
+                        oRow.description = String(
                             oRow.description ||
-                            oItem.BOMItemDescription ||
-                            oItem.bomItemDescription ||
-                            oItem.bomitemdescription ||
-                            oItem.BOMITEMDESCRIPTION ||
                             oItem.ProductDescription ||
                             oItem.productDescription ||
                             oItem.productdescription ||
@@ -1629,10 +1631,20 @@ sap.ui.define(
                             oItem.componentDescription ||
                             oItem.componentdescription ||
                             oItem.COMPONENTDESCRIPTION ||
+                            ""
+                        ).substring(0, 40);
+
+                        oRow.remarks = String(
+                            oRow.remarks ||
+                            oItem.BOMItemDescription ||
+                            oItem.bomItemDescription ||
+                            oItem.bomitemdescription ||
+                            oItem.BOMITEMDESCRIPTION ||
                             oItem.ItemText ||
                             oItem.itemText ||
                             oItem.itemtext ||
-                            "";
+                            ""
+                        ).substring(0, 40);
 
                         oRow.quantity =
                             oRow.quantity ||
