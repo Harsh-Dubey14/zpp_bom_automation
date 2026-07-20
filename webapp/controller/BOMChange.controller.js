@@ -557,6 +557,20 @@ PlantDisplay: "",
             oFirstItem.BomStatus ||
             Constants.BOM_STATUS,
 
+          BOMAlternativeText:
+            oFirstItem.BOMAlternativeText ||
+            oFirstItem.bomAlternativeText ||
+            oFirstItem.BOMALTERNATIVETEXT ||
+            oFirstItem.HeaderText ||
+            "",
+
+          HeaderText:
+            oFirstItem.BOMAlternativeText ||
+            oFirstItem.bomAlternativeText ||
+            oFirstItem.BOMALTERNATIVETEXT ||
+            oFirstItem.HeaderText ||
+            "",
+
           IsValidated: true,
           Message: "BOM loaded for change.",
           MessageType: "Success",
@@ -676,7 +690,7 @@ PlantDisplay: "",
 
         this.getOwnerComponent()
           .getRouter()
-          .navTo(Constants.ROUTES.HEADER || "RouteView1");
+          .navTo(Constants.ROUTES.HEADER || "RouteView1", {}, true);
       },
 
       onMaterialValueHelp: function () {
