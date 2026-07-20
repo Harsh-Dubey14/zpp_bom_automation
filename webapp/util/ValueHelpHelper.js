@@ -9,7 +9,8 @@ sap.ui.define(
     "sap/m/MessageBox",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "zppbomautomation/service/ValueHelpService"
+    "zppbomautomation/service/ValueHelpService",
+    "zppbomautomation/config/Constants"
   ],
   function (
     ValueHelpDialog,
@@ -19,19 +20,23 @@ sap.ui.define(
     MessageBox,
     Filter,
     FilterOperator,
-    ValueHelpService
+    ValueHelpService,
+    Constants
   ) {
     "use strict";
 
     return {
       openValueHelp: function (oController, oConfig) {
         var that = this;
+        var pLoadData = oConfig.odataPath
+          ? Promise.resolve(null)
+          : oConfig.loadData(oController);
 
-        oConfig.loadData(oController)
+        pLoadData
           .then(function (oLocalModel) {
             if (!oController[oConfig.dialogName]) {
               that._createValueHelpDialog(oController, oConfig, oLocalModel);
-            } else {
+            } else if (!oConfig.odataPath) {
               oController[oConfig.tableName].setModel(
                 oLocalModel,
                 oConfig.modelName
@@ -54,9 +59,12 @@ sap.ui.define(
 
         var fnDoSearch = function () {
           var aFilters = [];
+          var mSearchValues = {};
 
           oConfig.filterFields.forEach(function (oField, iIndex) {
             var sValue = aFilterInputs[iIndex].getValue();
+
+            mSearchValues[oField.name] = sValue;
 
             if (sValue) {
               aFilters.push(
@@ -64,6 +72,35 @@ sap.ui.define(
               );
             }
           });
+
+          if (oConfig.odataPath) {
+            var oRemoteBinding = oController[oConfig.tableName].getBinding("items");
+
+            if (oRemoteBinding) {
+              oRemoteBinding.filter(aFilters);
+            }
+            return;
+          }
+
+          if (oConfig.searchData) {
+            oController[oConfig.dialogName].setBusy(true);
+            oConfig.searchData(oController, mSearchValues, 0, 50)
+              .then(function (oSearchModel) {
+                oController[oConfig.tableName].setModel(
+                  oSearchModel,
+                  oConfig.modelName
+                );
+              })
+              .catch(function (oError) {
+                MessageBox.error(
+                  oError.message || oError.responseText || "Search failed."
+                );
+              })
+              .then(function () {
+                oController[oConfig.dialogName].setBusy(false);
+              });
+            return;
+          }
 
           var oBinding = oController[oConfig.tableName].getBinding("items");
 
@@ -113,13 +150,24 @@ sap.ui.define(
           })
         });
 
+        oController[oConfig.tableName].setModel(
+          oConfig.odataPath
+            ? oController.getOwnerComponent().getModel()
+            : oLocalModel,
+          oConfig.odataPath ? undefined : oConfig.modelName
+        );
+
         oController[oConfig.tableName].bindItems({
-          path: oConfig.modelName + ">/items",
+          path: oConfig.odataPath || oConfig.modelName + ">/items",
+          parameters: oConfig.odataPath
+            ? { $select: oConfig.selectFields.join(",") }
+            : undefined,
           template: new sap.m.ColumnListItem({
             type: "Active",
             cells: oConfig.columns.map(function (oColumn) {
               return new sap.m.Text({
-                text: "{" + oConfig.modelName + ">" + oColumn.name + "}"
+                text: "{" + (oConfig.odataPath ? "" : oConfig.modelName + ">") +
+                  oColumn.name + "}"
               });
             })
           })
@@ -151,7 +199,7 @@ sap.ui.define(
             }
 
             var oData = oSelectedItem
-              .getBindingContext(oConfig.modelName)
+              .getBindingContext(oConfig.odataPath ? undefined : oConfig.modelName)
               .getObject();
 
             oConfig.onSelect(oData);
@@ -170,7 +218,6 @@ sap.ui.define(
           }
         });
 
-        oController[oConfig.tableName].setModel(oLocalModel, oConfig.modelName);
         oController[oConfig.dialogName].setTable(oController[oConfig.tableName]);
       },
 
@@ -201,9 +248,8 @@ sap.ui.define(
           inputCacheName: "_aMatInputs",
           contentWidth: "70%",
           contentHeight: "60%",
-          loadData: function (oCtrl) {
-            return ValueHelpService.loadMaterialVHData(oCtrl);
-          },
+          odataPath: Constants.VALUE_HELP.MATERIAL_PATH,
+          selectFields: Constants.VALUE_HELP.MATERIAL_SELECT,
 
           filterFields: [
             {

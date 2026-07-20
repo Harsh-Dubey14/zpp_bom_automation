@@ -11,7 +11,8 @@ sap.ui.define(
     "sap/m/Column",
     "sap/m/Label",
     "sap/m/ColumnListItem",
-    "sap/m/Text"
+    "sap/m/Text",
+    "zppbomautomation/config/Constants"
   ],
   function (
     ValueHelpDialog,
@@ -25,7 +26,8 @@ sap.ui.define(
     Column,
     Label,
     ColumnListItem,
-    Text
+    Text,
+    Constants
   ) {
     "use strict";
 
@@ -35,7 +37,15 @@ sap.ui.define(
           this._createComponentDialog(oController, fnOnSelect);
         }
 
-        oController._oComponentTable.setModel(oLocalModel, "componentVH");
+        var oHeaderModel = oController.getOwnerComponent().getModel("headerModel");
+        var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+        var oBinding = oController._oComponentTable.getBinding("items");
+
+        if (oBinding) {
+          oBinding.filter([
+            new Filter("Plant", FilterOperator.EQ, sPlant)
+          ]);
+        }
         this.clearComponentSearch(oController);
         oController._oComponentVHD.open();
       },
@@ -46,24 +56,37 @@ sap.ui.define(
         var oDescriptionInput;
 
         var fnDoSearch = function () {
-          var aFilters = [];
           var sComponent = String(oComponentInput.getValue() || "").toUpperCase();
           var sDescription = oDescriptionInput.getValue();
+          var oHeaderModel = oController.getOwnerComponent().getModel("headerModel");
+          var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+
+          if (!sPlant) {
+            return;
+          }
+
+          var aFilters = [new Filter("Plant", FilterOperator.EQ, sPlant)];
 
           if (sComponent) {
-            aFilters.push(
-              new Filter("component", FilterOperator.Contains, sComponent)
-            );
+            aFilters.push(new Filter({
+              filters: [
+                new Filter("component", FilterOperator.Contains, sComponent),
+                new Filter(
+                  "ProductDescription",
+                  FilterOperator.Contains,
+                  sComponent
+                )
+              ],
+              and: false
+            }));
           }
 
           if (sDescription) {
-            aFilters.push(
-              new Filter(
-                "ProductDescription",
-                FilterOperator.Contains,
-                sDescription
-              )
-            );
+            aFilters.push(new Filter(
+              "ProductDescription",
+              FilterOperator.Contains,
+              sDescription
+            ));
           }
 
           var oBinding = oController._oComponentTable.getBinding("items");
@@ -130,14 +153,20 @@ sap.ui.define(
           ]
         });
 
+        oController._oComponentTable.setModel(
+          oController.getOwnerComponent().getModel()
+        );
         oController._oComponentTable.bindItems({
-          path: "componentVH>/items",
+          path: Constants.VALUE_HELP.COMPONENT_PATH,
+          parameters: {
+            $select: Constants.VALUE_HELP.COMPONENT_SELECT.join(",")
+          },
           template: new ColumnListItem({
             type: "Active",
             cells: [
-              new Text({ text: "{componentVH>component}" }),
-              new Text({ text: "{componentVH>ProductDescription}" }),
-              new Text({ text: "{componentVH>uom}" })
+              new Text({ text: "{component}" }),
+              new Text({ text: "{ProductDescription}" }),
+              new Text({ text: "{uom}" })
             ]
           })
         });
@@ -168,7 +197,7 @@ sap.ui.define(
             }
 
             var oData = oSelectedItem
-              .getBindingContext("componentVH")
+              .getBindingContext()
               .getObject();
 
             fnOnSelect(oData);
@@ -201,7 +230,12 @@ sap.ui.define(
           var oBinding = oController._oComponentTable.getBinding("items");
 
           if (oBinding) {
-            oBinding.filter([]);
+            var oHeaderModel = oController.getOwnerComponent().getModel("headerModel");
+            var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+
+            oBinding.filter(sPlant
+              ? [new Filter("Plant", FilterOperator.EQ, sPlant)]
+              : []);
           }
         }
       },

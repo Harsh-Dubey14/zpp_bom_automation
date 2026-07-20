@@ -3,10 +3,12 @@
 sap.ui.define(
   [
     "sap/ui/model/json/JSONModel",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
     "zppbomautomation/config/Constants",
     "zppbomautomation/util/FormatterHelper"
   ],
-  function (JSONModel, Constants, FormatterHelper) {
+  function (JSONModel, Filter, FilterOperator, Constants, FormatterHelper) {
     "use strict";
 
     var ValueHelpService = {
@@ -58,13 +60,96 @@ sap.ui.define(
       },
 
       loadMaterialVHData: function (oController) {
-        return ValueHelpService.loadVHData(
-          oController,
+        return ValueHelpService.searchMaterialVHData(oController, "", "", 0, 50);
+      },
+
+      searchMaterialVHData: function (
+        oController,
+        sProduct,
+        sDescription,
+        iStart,
+        iLength
+      ) {
+        var oODataModel = oController.getOwnerComponent().getModel();
+        var aFilters = [];
+        var sProductSearch = String(sProduct || "").trim().toUpperCase();
+        var sDescriptionSearch = String(sDescription || "").trim();
+        var iSafeStart = Math.max(Number(iStart) || 0, 0);
+        var iSafeLength = Math.min(Math.max(Number(iLength) || 50, 1), 100);
+
+        if (sProductSearch) {
+          aFilters.push(new Filter({
+            filters: [
+              new Filter(
+                "Product",
+                FilterOperator.Contains,
+                sProductSearch
+              ),
+              new Filter(
+                "ProductDescription",
+                FilterOperator.Contains,
+                sProductSearch
+              )
+            ],
+            and: false
+          }));
+        }
+
+        if (sDescriptionSearch) {
+          aFilters.push(new Filter(
+            "ProductDescription",
+            FilterOperator.Contains,
+            sDescriptionSearch
+          ));
+        }
+
+        var oListBinding = oODataModel.bindList(
           Constants.VALUE_HELP.MATERIAL_PATH,
-          Constants.VALUE_HELP.MATERIAL_SELECT,
-          "_oMaterialVHModel",
-          true
+          null,
+          null,
+          aFilters,
+          { $select: Constants.VALUE_HELP.MATERIAL_SELECT.join(",") }
         );
+
+        return oListBinding.requestContexts(iSafeStart, iSafeLength).then(
+          function (aContexts) {
+            return new JSONModel({
+              items: ValueHelpService._getUniqueProducts(
+                aContexts.map(function (oContext) {
+                  return oContext.getObject();
+                })
+              )
+            });
+          }
+        );
+      },
+
+      findMaterialRemote: function (oController, sMaterial) {
+        var sSearch = FormatterHelper.normalizeMaterialInput(sMaterial);
+        var sBackendMaterial = ValueHelpService._padMaterialNumber(sSearch);
+        var oODataModel;
+        var oListBinding;
+
+        if (!sSearch) {
+          return Promise.resolve(null);
+        }
+
+        oODataModel = oController.getOwnerComponent().getModel();
+        oListBinding = oODataModel.bindList(
+          Constants.VALUE_HELP.MATERIAL_PATH,
+          null,
+          null,
+          [new Filter(
+            "Product",
+            FilterOperator.EQ,
+            sBackendMaterial
+          )],
+          { $select: Constants.VALUE_HELP.MATERIAL_SELECT.join(",") }
+        );
+
+        return oListBinding.requestContexts(0, 1).then(function (aContexts) {
+          return aContexts.length ? aContexts[0].getObject() : null;
+        });
       },
 
       loadPlantVHData: function (oController) {

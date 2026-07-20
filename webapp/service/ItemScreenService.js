@@ -147,40 +147,66 @@ sap.ui.define(
         });
       },
 
-      loadComponentVHData: function (oController, sPlant) {
-        if (
-          oController._oComponentVHModel &&
-          oController._sComponentVHPlant === sPlant
-        ) {
-          return Promise.resolve(oController._oComponentVHModel);
-        }
-
+      loadComponentVHData: function (
+        oController,
+        sPlant,
+        sComponent,
+        sDescription,
+        iStart,
+        iLength
+      ) {
         return new Promise(function (resolve, reject) {
           var oODataModel = oController.getOwnerComponent().getModel();
+          var aFilters = [new Filter("Plant", FilterOperator.EQ, sPlant)];
+          var sComponentSearch = String(sComponent || "").trim().toUpperCase();
+          var sDescriptionSearch = String(sDescription || "").trim();
+          var iSafeStart = Math.max(Number(iStart) || 0, 0);
+          var iSafeLength = Math.min(Math.max(Number(iLength) || 50, 1), 100);
+
+          if (sComponentSearch) {
+            aFilters.push(new Filter({
+              filters: [
+                new Filter("component", FilterOperator.Contains, sComponentSearch),
+                new Filter(
+                  "ProductDescription",
+                  FilterOperator.Contains,
+                  sComponentSearch
+                )
+              ],
+              and: false
+            }));
+          }
+
+          if (sDescriptionSearch) {
+            aFilters.push(new Filter(
+              "ProductDescription",
+              FilterOperator.Contains,
+              sDescriptionSearch
+            ));
+          }
 
           var oListBinding = oODataModel.bindList(
             Constants.VALUE_HELP.COMPONENT_PATH,
             null,
             null,
-            [new Filter("Plant", FilterOperator.EQ, sPlant)],
+            aFilters,
             {
               $select: Constants.VALUE_HELP.COMPONENT_SELECT.join(",")
             }
           );
 
           oListBinding
-            .requestContexts(0, 5000)
+            .requestContexts(iSafeStart, iSafeLength)
             .then(function (aContexts) {
               var aResults = aContexts.map(function (oContext) {
                 return oContext.getObject();
               });
 
-              oController._sComponentVHPlant = sPlant;
-              oController._oComponentVHModel = new JSONModel({
+              var oResultModel = new JSONModel({
                 items: aResults
               });
 
-              resolve(oController._oComponentVHModel);
+              resolve(oResultModel);
             })
             .catch(function (oError) {
               reject(oError);

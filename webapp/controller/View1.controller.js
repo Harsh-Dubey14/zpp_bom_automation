@@ -1037,16 +1037,7 @@ sap.ui.define(
           return Promise.resolve(aCachedMatch[0]);
         }
 
-        return ValueHelpService.loadMaterialVHData(this).then(
-          function (oMaterialVHModel) {
-            this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
-
-            return ValueHelpService.findMaterial(
-              sNormalizedMaterial,
-              oMaterialVHModel
-            );
-          }.bind(this)
-        );
+        return ValueHelpService.findMaterialRemote(this, sNormalizedMaterial);
       },
 
       _resolveTypedMaterialOrDescriptionToProduct: function (
@@ -1055,72 +1046,40 @@ sap.ui.define(
       ) {
         var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
         var sSearch = String(sValue || "").trim().toUpperCase();
-        var sBackendSearch;
-        var aMatches;
-        var oMatched;
-        var sProduct;
 
         if (!oHeaderModel || !sSearch) {
           return Promise.resolve("");
         }
 
-        sBackendSearch = this._toBackendMaterial(sSearch).toUpperCase();
+        return ValueHelpService.searchMaterialVHData(
+          this,
+          sSearch,
+          "",
+          0,
+          50
+        ).then(
+          function (oResultModel) {
+            var aRemoteMatches = oResultModel.getProperty("/items") || [];
+            var oRemoteMatch = aRemoteMatches[0];
+            var sRemoteProduct;
 
-        aMatches = this._aMaterialVHCache.filter(
-          function (oItem) {
-            var sProductNo = String(oItem.Product || "").toUpperCase();
-            var sDisplayProduct = this._toDisplayMaterial(
-              sProductNo
-            ).toUpperCase();
-            var sDescription = this._getMaterialDescription(oItem).toUpperCase();
+            if (!oRemoteMatch) {
+              return "";
+            }
 
-            return (
-              sProductNo === sSearch ||
-              sProductNo === sBackendSearch ||
-              sDisplayProduct === sSearch ||
-              sDescription === sSearch
-            );
+            sRemoteProduct = this._toDisplayMaterial(oRemoteMatch.Product || "");
+
+            if (!sRemoteProduct) {
+              return "";
+            }
+
+            oHeaderModel.setProperty(sTargetProperty, sRemoteProduct);
+            oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+            this._setBackendMaterialProperty(sTargetProperty, sRemoteProduct);
+
+            return sRemoteProduct;
           }.bind(this)
         );
-
-        if (!aMatches.length) {
-          aMatches = this._aMaterialVHCache.filter(
-            function (oItem) {
-              var sProductNo = String(oItem.Product || "").toUpperCase();
-              var sDisplayProduct = this._toDisplayMaterial(
-                sProductNo
-              ).toUpperCase();
-              var sDescription = this._getMaterialDescription(
-                oItem
-              ).toUpperCase();
-
-              return (
-                sProductNo.indexOf(sSearch) !== -1 ||
-                sProductNo.indexOf(sBackendSearch) !== -1 ||
-                sDisplayProduct.indexOf(sSearch) !== -1 ||
-                sDescription.indexOf(sSearch) !== -1
-              );
-            }.bind(this)
-          );
-        }
-
-        if (!aMatches.length) {
-          return Promise.resolve("");
-        }
-
-        oMatched = aMatches[0];
-        sProduct = this._toDisplayMaterial(oMatched.Product || "");
-
-        if (!sProduct) {
-          return Promise.resolve("");
-        }
-
-        oHeaderModel.setProperty(sTargetProperty, sProduct);
-        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
-
-        this._setBackendMaterialProperty(sTargetProperty, sProduct);
-
-        return Promise.resolve(sProduct);
       },
 
       _resolveBackendMaterial: function (sMaterial) {
@@ -1250,20 +1209,6 @@ sap.ui.define(
       },
 
       _warmUpValueHelpCache: function () {
-        ValueHelpService.loadMaterialVHData(this)
-          .then(
-            function (oMaterialVHModel) {
-              this._aMaterialVHCache = this._getValueHelpRows(
-                oMaterialVHModel
-              );
-            }.bind(this)
-          )
-          .catch(
-            function () {
-              this._aMaterialVHCache = [];
-            }.bind(this)
-          );
-
         if (ValueHelpService.loadPlantVHData) {
           ValueHelpService.loadPlantVHData(this)
             .then(
@@ -1344,12 +1289,7 @@ sap.ui.define(
           oHeaderModel.setProperty("/BackendCopyMaterial", "");
         }
 
-        this.getView()
-          .getModel("materialSuggestModel")
-          .setProperty(
-            "/items",
-            this._filterMaterialSuggestions(sDisplayValue)
-          );
+        this._requestMaterialSuggestions(sDisplayValue);
 
         if (bResetValidation) {
           this._invalidatePrepareValidation(oHeaderModel);
@@ -1453,6 +1393,37 @@ sap.ui.define(
         );
 
         return aItems.slice(0, 20);
+      },
+
+      _requestMaterialSuggestions: function (sValue) {
+        var that = this;
+        var sSearch = String(sValue || "").trim();
+        var oSuggestionModel = this.getView().getModel("materialSuggestModel");
+        var iRequestId = (this._iMaterialSuggestRequest || 0) + 1;
+
+        this._iMaterialSuggestRequest = iRequestId;
+
+        clearTimeout(this._iMaterialSuggestTimer);
+
+        if (!sSearch) {
+          oSuggestionModel.setProperty("/items", []);
+          return;
+        }
+
+        this._iMaterialSuggestTimer = setTimeout(function () {
+          ValueHelpService.searchMaterialVHData(that, sSearch, "", 0, 20)
+            .then(function (oResultModel) {
+              if (that._iMaterialSuggestRequest === iRequestId) {
+                oSuggestionModel.setProperty(
+                  "/items",
+                  oResultModel.getProperty("/items") || []
+                );
+              }
+            })
+            .catch(function () {
+              oSuggestionModel.setProperty("/items", []);
+            });
+        }, 300);
       },
 
       _getMaterialDescription: function (oItem) {

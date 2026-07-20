@@ -738,11 +738,7 @@ PlantDisplay: "",
           return Promise.resolve(null);
         }
 
-        return ValueHelpService.loadMaterialVHData(this).then(function (
-          oMaterialVHModel
-        ) {
-          return ValueHelpService.findMaterial(sMaterial, oMaterialVHModel);
-        });
+        return ValueHelpService.findMaterialRemote(this, sMaterial);
       },
 
       _resolveBackendMaterial: function (sMaterial) {
@@ -843,18 +839,6 @@ _initSuggestionModels: function () {
 },
 
 _warmUpValueHelpCache: function () {
-  ValueHelpService.loadMaterialVHData(this)
-    .then(
-      function (oMaterialVHModel) {
-        this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
-      }.bind(this)
-    )
-    .catch(
-      function () {
-        this._aMaterialVHCache = [];
-      }.bind(this)
-    );
-
   if (ValueHelpService.loadPlantVHData) {
     ValueHelpService.loadPlantVHData(this)
       .then(
@@ -933,9 +917,7 @@ _handleLiveMaterialInput: function (oEvent) {
     oChangeModel.setProperty("/BackendMaterial", "");
   }
 
-  this.getView()
-    .getModel("materialSuggestModel")
-    .setProperty("/items", this._filterMaterialSuggestions(sDisplayValue));
+  this._requestMaterialSuggestions(sDisplayValue);
 
   this._clearFetchedData();
 },
@@ -1008,6 +990,38 @@ _filterMaterialSuggestions: function (sValue) {
   return aItems.slice(0, 20);
 },
 
+_requestMaterialSuggestions: function (sValue) {
+  var that = this;
+  var sSearch = String(sValue || "").trim();
+  var oSuggestionModel = this.getView().getModel("materialSuggestModel");
+  var iRequestId = (this._iMaterialSuggestRequest || 0) + 1;
+
+  this._iMaterialSuggestRequest = iRequestId;
+
+  clearTimeout(this._iMaterialSuggestTimer);
+
+  if (!sSearch) {
+    oSuggestionModel.setProperty("/items", []);
+    return;
+  }
+
+  this._iMaterialSuggestTimer = setTimeout(function () {
+    ValueHelpService.searchMaterialVHData(that, sSearch, "", 0, 20)
+      .then(function (oResultModel) {
+        if (that._iMaterialSuggestRequest !== iRequestId) {
+          return;
+        }
+        oSuggestionModel.setProperty(
+          "/items",
+          oResultModel.getProperty("/items") || []
+        );
+      })
+      .catch(function () {
+        oSuggestionModel.setProperty("/items", []);
+      });
+  }, 300);
+},
+
 _resolveTypedMaterialOrDescriptionToProduct: function (
   sValue,
   sTargetProperty
@@ -1019,51 +1033,13 @@ _resolveTypedMaterialOrDescriptionToProduct: function (
     return Promise.resolve("");
   }
 
-  return this._ensureMaterialCacheLoaded().then(
-    function () {
-      var sBackendSearch = this._toBackendMaterial(sSearch).toUpperCase();
-      var aMatches;
-      var oMatched;
-      var sProduct;
-
-      aMatches = this._aMaterialVHCache.filter(
-        function (oItem) {
-          var sProductNo = String(oItem.Product || "").toUpperCase();
-          var sDisplayProduct = this._toDisplayMaterial(sProductNo).toUpperCase();
-          var sDescription = this._getMaterialDescription(oItem).toUpperCase();
-
-          return (
-            sProductNo === sSearch ||
-            sProductNo === sBackendSearch ||
-            sDisplayProduct === sSearch ||
-            sDescription === sSearch
-          );
-        }.bind(this)
-      );
-
-      if (!aMatches.length) {
-        aMatches = this._aMaterialVHCache.filter(
-          function (oItem) {
-            var sProductNo = String(oItem.Product || "").toUpperCase();
-            var sDisplayProduct = this._toDisplayMaterial(sProductNo).toUpperCase();
-            var sDescription = this._getMaterialDescription(oItem).toUpperCase();
-
-            return (
-              sProductNo.indexOf(sSearch) !== -1 ||
-              sProductNo.indexOf(sBackendSearch) !== -1 ||
-              sDisplayProduct.indexOf(sSearch) !== -1 ||
-              sDescription.indexOf(sSearch) !== -1
-            );
-          }.bind(this)
-        );
-      }
-
-      if (!aMatches.length) {
-        return "";
-      }
-
-      oMatched = aMatches[0];
-      sProduct = this._toDisplayMaterial(oMatched.Product || "");
+  return ValueHelpService.searchMaterialVHData(this, sSearch, "", 0, 50).then(
+    function (oResultModel) {
+      var aMatches = oResultModel.getProperty("/items") || [];
+      var oMatched = aMatches[0];
+      var sProduct = oMatched
+        ? this._toDisplayMaterial(oMatched.Product || "")
+        : "";
 
       if (!sProduct) {
         return "";
@@ -1079,15 +1055,7 @@ _resolveTypedMaterialOrDescriptionToProduct: function (
 },
 
 _ensureMaterialCacheLoaded: function () {
-  if (this._aMaterialVHCache && this._aMaterialVHCache.length) {
-    return Promise.resolve();
-  }
-
-  return ValueHelpService.loadMaterialVHData(this).then(
-    function (oMaterialVHModel) {
-      this._aMaterialVHCache = this._getValueHelpRows(oMaterialVHModel);
-    }.bind(this)
-  );
+  return Promise.resolve();
 },
 
 _getMaterialDescription: function (oItem) {

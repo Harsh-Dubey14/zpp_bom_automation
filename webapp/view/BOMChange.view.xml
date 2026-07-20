@@ -84,6 +84,8 @@
                             showValueHelp="true"
                             valueHelpRequest=".onMaterialValueHelp"
                             showSuggestion="true"
+                            filterSuggests="false"
+                            startSuggestion="1"
                             liveChange=".onMaterialLiveChange"
                             suggestionItemSelected=".onMaterialSuggestionSelected"
                             suggestionRows="{materialSuggestModel>/items}"

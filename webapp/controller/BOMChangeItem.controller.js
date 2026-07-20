@@ -844,19 +844,13 @@ sap.ui.define(
                     return;
                 }
 
-                ItemScreenService.loadComponentVHData(this, sPlant)
-                    .then(function (oLocalModel) {
-                        ItemValueHelpHelper.openComponentValueHelp(
-                            that,
-                            oLocalModel,
-                            function (oData) {
-                                that._applyComponentSelection(oData);
-                            }
-                        );
-                    })
-                    .catch(function (oError) {
-                        MessageBox.error(that._getErrorText(oError));
-                    });
+                ItemValueHelpHelper.openComponentValueHelp(
+                    that,
+                    null,
+                    function (oData) {
+                        that._applyComponentSelection(oData);
+                    }
+                );
             },
 
             onComponentSuggest: function (oEvent) {
@@ -866,18 +860,25 @@ sap.ui.define(
                     .toUpperCase();
                 var oHeaderModel = this.getOwnerComponent().getModel("headerModel");
                 var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
+                var iRequestId = (this._iComponentSuggestRequest || 0) + 1;
+
+                this._iComponentSuggestRequest = iRequestId;
 
                 if (!sPlant) {
                     this.getView().setModel(new JSONModel({ items: [] }), "componentSuggestModel");
                     return;
                 }
 
-                ItemScreenService.loadComponentVHData(this, sPlant).then(function (oModel) {
-                    var aItems = (oModel.getProperty("/items") || []).filter(function (oItem) {
-                        var sComponent = String(oItem.component || "").toUpperCase();
-                        var sDescription = ItemScreenService.getComponentDescription(oItem).toUpperCase();
-                        return !sQuery || sComponent.indexOf(sQuery) !== -1 || sDescription.indexOf(sQuery) !== -1;
-                    }).slice(0, 50);
+                if (!sQuery) {
+                    this.getView().setModel(new JSONModel({ items: [] }), "componentSuggestModel");
+                    return;
+                }
+
+                ItemScreenService.loadComponentVHData(this, sPlant, sQuery, "", 0, 50).then(function (oModel) {
+                    if (that._iComponentSuggestRequest !== iRequestId) {
+                        return;
+                    }
+                    var aItems = oModel.getProperty("/items") || [];
 
                     that.getView().setModel(new JSONModel({ items: aItems }), "componentSuggestModel");
                 }).catch(function () {
@@ -1881,7 +1882,14 @@ sap.ui.define(
                     return Promise.resolve(this._toBackendMaterial(sInputComponent));
                 }
 
-                return ItemScreenService.loadComponentVHData(this, sPlant)
+                return ItemScreenService.loadComponentVHData(
+                    this,
+                    sPlant,
+                    sInputComponent,
+                    "",
+                    0,
+                    10
+                )
                     .then(
                         function (oLocalModel) {
                             var oMatchedComponent = this._findComponentInValueHelp(
