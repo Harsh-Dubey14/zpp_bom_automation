@@ -122,11 +122,15 @@ PlantDisplay: "",
   try {
     BusyIndicator.show(0);
 
-    var sResolvedProduct =
-      await this._resolveTypedMaterialOrDescriptionToProduct(
-        oData.Material,
-        "/Material"
-      );
+    var sResolvedProduct = FormatterHelper.normalizeMaterialInput(
+      oData.Material
+    ).toUpperCase();
+
+    oChangeModel.setProperty("/Material", sResolvedProduct);
+    oChangeModel.setProperty(
+      "/BackendMaterial",
+      this._toBackendMaterial(sResolvedProduct)
+    );
 
     oData = oChangeModel.getData();
 
