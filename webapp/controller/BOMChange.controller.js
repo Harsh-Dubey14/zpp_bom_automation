@@ -218,6 +218,22 @@ PlantDisplay: "",
 
         var aItems = await this._readBomChangeItems(oModel, oRequest);
 
+        if (oRequest.searchMode === Constants.SEARCH_MODE.MATERIAL) {
+          var sRequestedMaterial = this._toBackendMaterial(
+            oRequest.Material || ""
+          ).toUpperCase();
+
+          aItems = aItems.filter(
+            function (oItem) {
+              var sReturnedMaterial = this._toBackendMaterial(
+                oItem.Material || ""
+              ).toUpperCase();
+
+              return sReturnedMaterial === sRequestedMaterial;
+            }.bind(this)
+          );
+        }
+
         aItems = aItems.filter(function (oItem) {
           return (
             oItem &&
