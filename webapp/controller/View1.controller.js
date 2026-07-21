@@ -439,6 +439,20 @@ sap.ui.define(
           oPreparedData.AltText
         );
 
+        if (
+          oPrepareResponse.Material &&
+          this._toBackendMaterial(oPrepareResponse.Material).toUpperCase() !==
+            this._toBackendMaterial(oPreparedData.Material).toUpperCase()
+        ) {
+          throw new Error(
+            "Backend returned a different material (" +
+              oPrepareResponse.Material +
+              ") for " +
+              oPreparedData.Material +
+              ". Please correct the server-side material validation."
+          );
+        }
+
         this._applyPrepareCreateBomResponse(oHeaderModel, oPrepareResponse);
 
         if (bShowToast) {
@@ -537,10 +551,16 @@ sap.ui.define(
           );
         }
 
-        oHeaderModel.setProperty("/Material", oPrepareResponse.Material || "");
+        /*
+         * Keep the material requested by the user. The prepare response may
+         * contain the first partial/contains match (for example BC-WF311 for
+         * WF311), which must not replace the create material.
+         */
         oHeaderModel.setProperty(
           "/BackendMaterial",
-          oPrepareResponse.Material || ""
+          oHeaderModel.getProperty("/BackendMaterial") ||
+            oHeaderModel.getProperty("/Material") ||
+            ""
         );
         oHeaderModel.setProperty("/Plant", oPrepareResponse.Plant || "");
         oHeaderModel.setProperty(
@@ -850,15 +870,9 @@ sap.ui.define(
           return;
         }
 
-        this._resolveMaterialFromValueHelp(sValue)
-          .then(function (oMatchedMaterial) {
+        Promise.resolve()
+          .then(function () {
             var sMaterialForDisplay = sValue;
-
-            if (oMatchedMaterial && oMatchedMaterial.Product) {
-              sMaterialForDisplay = that._toDisplayMaterial(
-                oMatchedMaterial.Product
-              );
-            }
 
             oInput.setValueState("None");
             oInput.setValueStateText("");
@@ -1051,35 +1065,11 @@ sap.ui.define(
           return Promise.resolve("");
         }
 
-        return ValueHelpService.searchMaterialVHData(
-          this,
-          sSearch,
-          "",
-          0,
-          50
-        ).then(
-          function (oResultModel) {
-            var aRemoteMatches = oResultModel.getProperty("/items") || [];
-            var oRemoteMatch = aRemoteMatches[0];
-            var sRemoteProduct;
+        oHeaderModel.setProperty(sTargetProperty, sSearch);
+        oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
+        this._setBackendMaterialProperty(sTargetProperty, sSearch);
 
-            if (!oRemoteMatch) {
-              return "";
-            }
-
-            sRemoteProduct = this._toDisplayMaterial(oRemoteMatch.Product || "");
-
-            if (!sRemoteProduct) {
-              return "";
-            }
-
-            oHeaderModel.setProperty(sTargetProperty, sRemoteProduct);
-            oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
-            this._setBackendMaterialProperty(sTargetProperty, sRemoteProduct);
-
-            return sRemoteProduct;
-          }.bind(this)
-        );
+        return Promise.resolve(sSearch);
       },
 
       _resolveBackendMaterial: function (sMaterial) {
