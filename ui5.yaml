@@ -8,6 +8,10 @@ builder:
   componentPreload:
     excludes:
       - "zppbomautomation/thirdparty/**"
+  resources:
+    excludes:
+      - /test/**
+      - /localService/**
 server:
   customMiddleware:
     - name: fiori-tools-proxy
