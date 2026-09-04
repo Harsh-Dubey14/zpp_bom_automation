@@ -38,9 +38,15 @@ sap.ui.define(
       },
 
       isValidQuantityDecimal: function (vQuantity) {
-        var sQuantity = String(vQuantity || "");
+        var nQuantity = Number(vQuantity);
 
-        return /^\d+(\.\d{1,3})?$/.test(sQuantity);
+        if (!Number.isFinite(nQuantity)) {
+          return false;
+        }
+
+        return Math.abs(
+          nQuantity * 1000 - Math.round(nQuantity * 1000)
+        ) < 0.000000001;
       },
 
       getComponentUom: function (oData) {
