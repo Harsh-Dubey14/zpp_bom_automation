@@ -1,5 +1,3 @@
-# yaml-language-server: $schema=https://sap.github.io/ui5-tooling/schema/ui5.yaml.json
-
 specVersion: "4.0"
 metadata:
   name: zppbomautomation
@@ -7,7 +5,7 @@ type: application
 builder:
   componentPreload:
     excludes:
-      - "zppbomautomation/thirdparty/**"
+      - zppbomautomation/thirdparty/**
   resources:
     excludes:
       - /test/**
@@ -20,10 +18,11 @@ builder:
           destination: BAS_CONNECT_NEW
           url: https://my433488.s4hana.cloud.sap
           scp: true
-          authenticationType: reentranceTicket # SAML support for vscode
+          authenticationType: reentranceTicket
         app:
           name: ZC_BOM_HDR_N
           package: ZPP_BOMCREATION_API
-          transport: REPLACE_WITH_TRANSPORT
+          transport: EGFK902357
         exclude:
           - /test/
+          - /localService/
