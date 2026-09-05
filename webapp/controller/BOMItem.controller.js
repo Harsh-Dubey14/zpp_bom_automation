@@ -369,6 +369,12 @@ sap.ui.define(
           return;
         }
 
+        if (isNaN(Number(sValue))) {
+          oInput.setValueState("Error");
+          oInput.setValueStateText("Enter a valid quantity.");
+          return;
+        }
+
         if (!ItemScreenService.isValidQuantityDecimal(sValue)) {
           oInput.setValueState("Error");
           oInput.setValueStateText(

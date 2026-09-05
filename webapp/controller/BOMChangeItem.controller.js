@@ -479,6 +479,12 @@ sap.ui.define(
                     return;
                 }
 
+                if (isNaN(Number(sValue))) {
+                    oInput.setValueState("Error");
+                    oInput.setValueStateText("Enter a valid quantity.");
+                    return;
+                }
+
                 if (!ItemScreenService.isValidQuantityDecimal(sValue)) {
                     oInput.setValueState("Error");
                     oInput.setValueStateText(
@@ -1291,6 +1297,14 @@ sap.ui.define(
                         return {
                             valid: false,
                             message: "Row " + (i + 1) + ": Component is mandatory."
+                        };
+                    }
+
+                    if (oItem.quantity && isNaN(Number(oItem.quantity))) {
+                        return {
+                            valid: false,
+                            message:
+                                "Row " + (i + 1) + ": Enter a valid quantity."
                         };
                     }
 

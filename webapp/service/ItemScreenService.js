@@ -38,15 +38,18 @@ sap.ui.define(
       },
 
       isValidQuantityDecimal: function (vQuantity) {
-        var nQuantity = Number(vQuantity);
-
-        if (!Number.isFinite(nQuantity)) {
+        if (vQuantity === null || vQuantity === undefined) {
           return false;
         }
 
-        return Math.abs(
-          nQuantity * 1000 - Math.round(nQuantity * 1000)
-        ) < 0.000000001;
+        var sQuantity = String(vQuantity).trim();
+
+        // Auto-prefix leading zero if user entered ".56"
+        if (sQuantity.startsWith(".")) {
+          sQuantity = "0" + sQuantity;
+        }
+
+        return /^\d+(\.\d{1,3})?$/.test(sQuantity);
       },
 
       getComponentUom: function (oData) {
@@ -388,6 +391,13 @@ sap.ui.define(
             return {
               valid: false,
               message: sPrefix + "Component is required."
+            };
+          }
+
+          if (oItem.quantity && isNaN(Number(oItem.quantity))) {
+            return {
+              valid: false,
+              message: sPrefix + "Enter a valid quantity."
             };
           }
 
