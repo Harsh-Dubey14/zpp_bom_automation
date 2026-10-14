@@ -262,7 +262,7 @@ sap.ui.define(
             },
             {
               name: "PrintName",
-              label: "Print Name"
+              label: "Legacy Prduct Name"
             }
           ],
 
@@ -277,7 +277,7 @@ sap.ui.define(
             },
             {
               name: "PrintName",
-              label: "Print Name"
+              label: "Legacy Prduct Name"
             }
           ],
 

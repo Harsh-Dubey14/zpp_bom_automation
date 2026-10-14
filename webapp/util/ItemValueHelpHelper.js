@@ -145,7 +145,7 @@ sap.ui.define(
             new FilterGroupItem({
               groupName: "basic",
               name: "PrintName",
-              label: "Print Name",
+              label: "Legacy Prduct Name",
               visibleInFilterBar: true,
               control: oPrintNameInput
             })
@@ -165,7 +165,7 @@ sap.ui.define(
               header: new Label({ text: "Description" })
             }),
             new Column({
-              header: new Label({ text: "Print Name" })
+              header: new Label({ text: "Legacy Prduct Name" })
             }),
             new Column({
               header: new Label({ text: "UOM" })

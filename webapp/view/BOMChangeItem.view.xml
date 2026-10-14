@@ -257,7 +257,7 @@
                                         <Column><Text text="Component" /></Column>
                                         <Column><Text text="Description" /></Column>
                                         <Column><Text text="UoM" /></Column>
-                                        <Column><Label text="Print Name" /></Column>
+                                        <Column><Label text="Legacy Prduct Name" /></Column>
                                     </suggestionColumns>
                                     <suggestionRows>
                                         <ColumnListItem>
