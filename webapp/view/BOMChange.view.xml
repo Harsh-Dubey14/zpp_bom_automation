@@ -100,14 +100,16 @@
                                 <Column>
                                     <Label text="Description" />
                                 </Column>
-                            </suggestionColumns>
+                                        <Column><Label text="Print Name" /></Column>
+                                    </suggestionColumns>
 
                             <suggestionRows>
                                 <ColumnListItem>
                                     <cells>
                                         <Text text="{materialSuggestModel>Product}" />
                                         <Text text="{materialSuggestModel>ProductDescription}" />
-                                    </cells>
+                                        <Text text="{materialSuggestModel>PrintName}" />
+                                            </cells>
                                 </ColumnListItem>
                             </suggestionRows>
                         </Input>

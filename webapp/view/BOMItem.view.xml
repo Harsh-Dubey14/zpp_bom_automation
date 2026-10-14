@@ -291,6 +291,7 @@
                                         <Column><Text text="Component" /></Column>
                                         <Column><Text text="Description" /></Column>
                                         <Column><Text text="UoM" /></Column>
+                                        <Column><Label text="Print Name" /></Column>
                                     </suggestionColumns>
                                     <suggestionRows>
                                         <ColumnListItem>
@@ -298,6 +299,7 @@
                                                 <Text text="{componentSuggestModel>component}" />
                                                 <Text text="{componentSuggestModel>ProductDescription}" />
                                                 <Text text="{componentSuggestModel>uom}" />
+                                                <Text text="{componentSuggestModel>PrintName}" />
                                             </cells>
                                         </ColumnListItem>
                                     </suggestionRows>

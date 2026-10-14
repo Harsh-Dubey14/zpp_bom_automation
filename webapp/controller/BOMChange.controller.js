@@ -28,22 +28,22 @@ sap.ui.define(
     "use strict";
 
     return Controller.extend("zppbomautomation.controller.BOMChange", {
-    onInit: function () {
-  this._initChangeModel();
-  this._initSuggestionModels();
-  this._warmUpValueHelpCache();
+      onInit: function () {
+        this._initChangeModel();
+        this._initSuggestionModels();
+        this._warmUpValueHelpCache();
 
-  this.getOwnerComponent()
-    .getRouter()
-    .getRoute(Constants.ROUTES.CHANGE)
-    .attachPatternMatched(this._onRouteMatched, this);
-},
+        this.getOwnerComponent()
+          .getRouter()
+          .getRoute(Constants.ROUTES.CHANGE)
+          .attachPatternMatched(this._onRouteMatched, this);
+      },
 
       _onRouteMatched: function () {
-  this._initChangeModel();
-  this._initSuggestionModels();
-  this._warmUpValueHelpCache();
-},
+        this._initChangeModel();
+        this._initSuggestionModels();
+        this._warmUpValueHelpCache();
+      },
 
       _initChangeModel: function () {
         var oChangeModel = new JSONModel(this._getDefaultChangeData());
@@ -54,11 +54,11 @@ sap.ui.define(
 
       _getDefaultChangeData: function () {
         return {
-         Material: "",
-BackendMaterial: "",
-Plant: "",
-PlantName: "",
-PlantDisplay: "",
+          Material: "",
+          BackendMaterial: "",
+          Plant: "",
+          PlantName: "",
+          PlantDisplay: "",
           BomUsage: Constants.BOM_USAGE || "1",
           AltBom: "",
 
@@ -104,74 +104,70 @@ PlantDisplay: "",
         this._clearMessage();
       },
 
-     onGetBOMByMaterial: async function () {
-  var oChangeModel = this.getView().getModel("changeModel");
+      onGetBOMByMaterial: async function () {
+        var oChangeModel = this.getView().getModel("changeModel");
 
-  if (!oChangeModel) {
-    MessageBox.error("Change model is missing.");
-    return;
-  }
+        if (!oChangeModel) {
+          MessageBox.error("Change model is missing.");
+          return;
+        }
 
-  var oData = oChangeModel.getData();
+        var oData = oChangeModel.getData();
 
-  if (!oData.Material || !oData.Plant || !oData.AltBom) {
-    MessageBox.error("Please enter Material, Plant and Alternative BOM.");
-    return;
-  }
+        if (!oData.Material || !oData.Plant || !oData.AltBom) {
+          MessageBox.error("Please enter Material, Plant and Alternative BOM.");
+          return;
+        }
 
-  try {
-    BusyIndicator.show(0);
+        try {
+          BusyIndicator.show(0);
 
-    var sResolvedProduct = FormatterHelper.normalizeMaterialInput(
-      oData.Material
-    ).toUpperCase();
+          var sResolvedProduct =
+            await this._resolveTypedMaterialOrDescriptionToProduct(
+              oData.Material,
+              "/Material"
+            );
 
-    oChangeModel.setProperty("/Material", sResolvedProduct);
-    oChangeModel.setProperty(
-      "/BackendMaterial",
-      this._toBackendMaterial(sResolvedProduct)
-    );
+          oData = oChangeModel.getData();
 
-    oData = oChangeModel.getData();
+          if (!sResolvedProduct || !this._looksLikeMaterialCode(oData.Material)) {
+            MessageBox.error("Please select or enter a valid Product.");
+            return;
+          }
 
-    if (!sResolvedProduct || !this._looksLikeMaterialCode(oData.Material)) {
-      MessageBox.error("Please select or enter a valid Product.");
-      return;
-    }
+          var sBackendMaterial = this._getBackendMaterialFromChangeModel();
+          var sPlant = this._toUpperTrim(oData.Plant);
 
-    var sBackendMaterial = this._getBackendMaterialFromChangeModel();
-    var sPlant = this._toUpperTrim(oData.Plant);
+          oChangeModel.setProperty("/Material", this._toDisplayMaterial(oData.Material));
+          oChangeModel.setProperty("/Plant", sPlant);
+          oChangeModel.setProperty(
+            "/PlantDisplay",
+            this._formatPlantDisplay(
+              sPlant,
+              oChangeModel.getProperty("/PlantName") || ""
+            )
+          );
+          oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-    oChangeModel.setProperty("/Material", this._toDisplayMaterial(oData.Material));
-    oChangeModel.setProperty("/Plant", sPlant);
-    oChangeModel.setProperty(
-      "/PlantDisplay",
-      this._formatPlantDisplay(
-        sPlant,
-        oChangeModel.getProperty("/PlantName") || ""
-      )
-    );
-    oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-
-    await this._fetchBomChangeItems(
-      {
-        searchMode: Constants.SEARCH_MODE.MATERIAL,
-        Material: sBackendMaterial,
-        Plant: sPlant,
-        PlantName: oChangeModel.getProperty("/PlantName") || "",
-        PlantDisplay: oChangeModel.getProperty("/PlantDisplay") || sPlant,
-        BillOfMaterialVariantUsage: Constants.BOM_USAGE || "1",
-        BillOfMaterialVariant: String(oData.AltBom || "").trim()
+          await this._fetchBomChangeItems(
+            {
+              searchMode: Constants.SEARCH_MODE.MATERIAL,
+              Material: sBackendMaterial,
+              Plant: sPlant,
+              PlantName: oChangeModel.getProperty("/PlantName") || "",
+              PlantDisplay: oChangeModel.getProperty("/PlantDisplay") || sPlant,
+              BillOfMaterialVariantUsage: Constants.BOM_USAGE || "1",
+              BillOfMaterialVariant: String(oData.AltBom || "").trim()
+            },
+            true
+          );
+        } catch (oError) {
+          this._setMessage(this._getErrorText(oError), "Error");
+          MessageBox.error(this._getErrorText(oError));
+        } finally {
+          BusyIndicator.hide();
+        }
       },
-      true
-    );
-  } catch (oError) {
-    this._setMessage(this._getErrorText(oError), "Error");
-    MessageBox.error(this._getErrorText(oError));
-  } finally {
-    BusyIndicator.hide();
-  }
-},
 
       onGetBOMByNumber: async function () {
         var oChangeModel = this.getView().getModel("changeModel");
@@ -217,22 +213,6 @@ PlantDisplay: "",
         this._setMessage("Fetching BOM components...", "Information");
 
         var aItems = await this._readBomChangeItems(oModel, oRequest);
-
-        if (oRequest.searchMode === Constants.SEARCH_MODE.MATERIAL) {
-          var sRequestedMaterial = this._toBackendMaterial(
-            oRequest.Material || ""
-          ).toUpperCase();
-
-          aItems = aItems.filter(
-            function (oItem) {
-              var sReturnedMaterial = this._toBackendMaterial(
-                oItem.Material || ""
-              ).toUpperCase();
-
-              return sReturnedMaterial === sRequestedMaterial;
-            }.bind(this)
-          );
-        }
 
         aItems = aItems.filter(function (oItem) {
           return (
@@ -291,29 +271,29 @@ PlantDisplay: "",
           );
           aFilters.push(
             "BillOfMaterialVariantUsage eq '" +
-              this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
-              "'"
+            this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
+            "'"
           );
           aFilters.push(
             "BillOfMaterialVariant eq '" +
-              this._escapeODataValue(oRequest.BillOfMaterialVariant) +
-              "'"
+            this._escapeODataValue(oRequest.BillOfMaterialVariant) +
+            "'"
           );
         } else {
           aFilters.push(
             "BillOfMaterial eq '" +
-              this._escapeODataValue(oRequest.BillOfMaterial) +
-              "'"
+            this._escapeODataValue(oRequest.BillOfMaterial) +
+            "'"
           );
           aFilters.push(
             "BillOfMaterialVariantUsage eq '" +
-              this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
-              "'"
+            this._escapeODataValue(oRequest.BillOfMaterialVariantUsage) +
+            "'"
           );
           aFilters.push(
             "BillOfMaterialVariant eq '" +
-              this._escapeODataValue(oRequest.BillOfMaterialVariant) +
-              "'"
+            this._escapeODataValue(oRequest.BillOfMaterialVariant) +
+            "'"
           );
         }
 
@@ -371,10 +351,10 @@ PlantDisplay: "",
 
             quantity:
               oItem.BillOfMaterialItemQuantity !== undefined &&
-              oItem.BillOfMaterialItemQuantity !== null
+                oItem.BillOfMaterialItemQuantity !== null
                 ? FormatterHelper.formatQuantityForDisplay(
-                    oItem.BillOfMaterialItemQuantity
-                  )
+                  oItem.BillOfMaterialItemQuantity
+                )
                 : "",
 
             uom: oItem.BillOfMaterialItemUnit || oItem.Uom || "",
@@ -414,13 +394,13 @@ PlantDisplay: "",
 
             bomHeaderQuantityInBaseUnit:
               oItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-              oItem.BOMHeaderQuantityInBaseUnit !== null
+                oItem.BOMHeaderQuantityInBaseUnit !== null
                 ? oItem.BOMHeaderQuantityInBaseUnit
                 : "",
 
             BOMHeaderQuantityInBaseUnit:
               oItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-              oItem.BOMHeaderQuantityInBaseUnit !== null
+                oItem.BOMHeaderQuantityInBaseUnit !== null
                 ? oItem.BOMHeaderQuantityInBaseUnit
                 : "",
 
@@ -488,8 +468,8 @@ PlantDisplay: "",
             oRequest.PlantDisplay ||
             this._formatPlantDisplay(
               oFirstItem.Plant ||
-                oRequest.Plant ||
-                "",
+              oRequest.Plant ||
+              "",
               oRequest.PlantName || ""
             ),
 
@@ -533,13 +513,13 @@ PlantDisplay: "",
 
           BaseQty:
             oFirstItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-            oFirstItem.BOMHeaderQuantityInBaseUnit !== null
+              oFirstItem.BOMHeaderQuantityInBaseUnit !== null
               ? String(oFirstItem.BOMHeaderQuantityInBaseUnit)
               : oFirstItem.BaseQty || "",
 
           BOMHeaderQuantityInBaseUnit:
             oFirstItem.BOMHeaderQuantityInBaseUnit !== undefined &&
-            oFirstItem.BOMHeaderQuantityInBaseUnit !== null
+              oFirstItem.BOMHeaderQuantityInBaseUnit !== null
               ? String(oFirstItem.BOMHeaderQuantityInBaseUnit)
               : oFirstItem.BaseQty || "",
 
@@ -556,15 +536,15 @@ PlantDisplay: "",
           ValidFrom:
             this._formatDateForDisplay(
               oFirstItem.HeaderValidityStartDate ||
-                oFirstItem.ValidFrom ||
-                ""
+              oFirstItem.ValidFrom ||
+              ""
             ),
 
           HeaderValidityStartDate:
             this._formatDateForDisplay(
               oFirstItem.HeaderValidityStartDate ||
-                oFirstItem.ValidFrom ||
-                ""
+              oFirstItem.ValidFrom ||
+              ""
             ),
 
           BomStatus:
@@ -601,8 +581,8 @@ PlantDisplay: "",
       _enrichRequestWithPlantDisplay: async function (oRequest, oFirstItem) {
         var sPlant = this._toUpperTrim(
           (oFirstItem && oFirstItem.Plant) ||
-            (oRequest && oRequest.Plant) ||
-            ""
+          (oRequest && oRequest.Plant) ||
+          ""
         );
         var sPlantName;
 
@@ -714,42 +694,42 @@ PlantDisplay: "",
       },
 
       onMaterialValueHelp: function () {
-  var that = this;
+        var that = this;
 
-  ValueHelpHelper.openMaterialValueHelp(this, function (oData) {
-    var oChangeModel = that.getView().getModel("changeModel");
-    var sProduct = that._toDisplayMaterial(oData.Product || "");
+        ValueHelpHelper.openMaterialValueHelp(this, function (oData) {
+          var oChangeModel = that.getView().getModel("changeModel");
+          var sProduct = that._toDisplayMaterial(oData.Product || "");
 
-    oChangeModel.setProperty("/Material", sProduct);
-    oChangeModel.setProperty(
-      "/BackendMaterial",
-      that._toBackendMaterial(oData.Product || "")
-    );
+          oChangeModel.setProperty("/Material", sProduct);
+          oChangeModel.setProperty(
+            "/BackendMaterial",
+            that._toBackendMaterial(oData.Product || "")
+          );
 
-    oChangeModel.setProperty("/CanContinue", false);
-    oChangeModel.setProperty("/FetchedItems", []);
-    oChangeModel.setProperty("/HeaderData", null);
-    oChangeModel.setProperty("/SearchMode", "");
+          oChangeModel.setProperty("/CanContinue", false);
+          oChangeModel.setProperty("/FetchedItems", []);
+          oChangeModel.setProperty("/HeaderData", null);
+          oChangeModel.setProperty("/SearchMode", "");
 
-    that._clearMessage();
-  });
-},
+          that._clearMessage();
+        });
+      },
 
-     onPlantValueHelp: function () {
-  var that = this;
+      onPlantValueHelp: function () {
+        var that = this;
 
-  ValueHelpHelper.openPlantValueHelp(this, function (oData) {
-    that._setPlantSelection(oData);
+        ValueHelpHelper.openPlantValueHelp(this, function (oData) {
+          that._setPlantSelection(oData);
 
-    var oChangeModel = that.getView().getModel("changeModel");
-    oChangeModel.setProperty("/CanContinue", false);
-    oChangeModel.setProperty("/FetchedItems", []);
-    oChangeModel.setProperty("/HeaderData", null);
-    oChangeModel.setProperty("/SearchMode", "");
+          var oChangeModel = that.getView().getModel("changeModel");
+          oChangeModel.setProperty("/CanContinue", false);
+          oChangeModel.setProperty("/FetchedItems", []);
+          oChangeModel.setProperty("/HeaderData", null);
+          oChangeModel.setProperty("/SearchMode", "");
 
-    that._clearMessage();
-  });
-},
+          that._clearMessage();
+        });
+      },
 
       _resolveMaterialFromValueHelp: function (sMaterial) {
         sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
@@ -835,449 +815,450 @@ PlantDisplay: "",
       _cleanSortString: function (sSortString) {
         return String(sSortString || "").trim().toUpperCase();
       },
-/* =========================================================== */
-/* Live Suggestions                                             */
-/* =========================================================== */
+      /* =========================================================== */
+      /* Live Suggestions                                             */
+      /* =========================================================== */
 
-_initSuggestionModels: function () {
-  this.getView().setModel(
-    new JSONModel({
-      items: []
-    }),
-    "materialSuggestModel"
-  );
+      _initSuggestionModels: function () {
+        this.getView().setModel(
+          new JSONModel({
+            items: []
+          }),
+          "materialSuggestModel"
+        );
 
-  this.getView().setModel(
-    new JSONModel({
-      items: []
-    }),
-    "plantSuggestModel"
-  );
+        this.getView().setModel(
+          new JSONModel({
+            items: []
+          }),
+          "plantSuggestModel"
+        );
 
-  this._aMaterialVHCache = [];
-  this._aPlantVHCache = [];
-},
+        this._aMaterialVHCache = [];
+        this._aPlantVHCache = [];
+      },
 
-_warmUpValueHelpCache: function () {
-  if (ValueHelpService.loadPlantVHData) {
-    ValueHelpService.loadPlantVHData(this)
-      .then(
-        function (oPlantVHModel) {
-          this._aPlantVHCache = this._getValueHelpRows(oPlantVHModel);
-        }.bind(this)
-      )
-      .catch(
-        function () {
-          this._aPlantVHCache = [];
-        }.bind(this)
-      );
-  }
-},
+      _warmUpValueHelpCache: function () {
+        if (ValueHelpService.loadPlantVHData) {
+          ValueHelpService.loadPlantVHData(this)
+            .then(
+              function (oPlantVHModel) {
+                this._aPlantVHCache = this._getValueHelpRows(oPlantVHModel);
+              }.bind(this)
+            )
+            .catch(
+              function () {
+                this._aPlantVHCache = [];
+              }.bind(this)
+            );
+        }
+      },
 
-_getValueHelpRows: function (oModel) {
-  var oData;
+      _getValueHelpRows: function (oModel) {
+        var oData;
 
-  if (!oModel || !oModel.getData) {
-    return [];
-  }
+        if (!oModel || !oModel.getData) {
+          return [];
+        }
 
-  oData = oModel.getData();
+        oData = oModel.getData();
 
-  if (Array.isArray(oData)) {
-    return oData;
-  }
+        if (Array.isArray(oData)) {
+          return oData;
+        }
 
-  if (Array.isArray(oData.value)) {
-    return oData.value;
-  }
+        if (Array.isArray(oData.value)) {
+          return oData.value;
+        }
 
-  if (Array.isArray(oData.results)) {
-    return oData.results;
-  }
+        if (Array.isArray(oData.results)) {
+          return oData.results;
+        }
 
-  if (Array.isArray(oData.items)) {
-    return oData.items;
-  }
+        if (Array.isArray(oData.items)) {
+          return oData.items;
+        }
 
-  return [];
-},
+        return [];
+      },
 
-onMaterialLiveChange: function (oEvent) {
-  this._handleLiveMaterialInput(oEvent);
-},
+      onMaterialLiveChange: function (oEvent) {
+        this._handleLiveMaterialInput(oEvent);
+      },
 
-_handleLiveMaterialInput: function (oEvent) {
-  var oInput = oEvent.getSource();
-  var oChangeModel = this.getView().getModel("changeModel");
-  var sRawValue;
-  var sDisplayValue;
+      _handleLiveMaterialInput: function (oEvent) {
+        var oInput = oEvent.getSource();
+        var oChangeModel = this.getView().getModel("changeModel");
+        var sRawValue;
+        var sDisplayValue;
 
-  if (!oChangeModel) {
-    return;
-  }
-
-  /*
-   * Do not trim during live typing.
-   * Product description can contain spaces.
-   */
-  sRawValue = String(oInput.getValue() || "");
-  sDisplayValue = sRawValue.toUpperCase();
-
-  oInput.setValue(sDisplayValue);
-
-  oChangeModel.setProperty("/Material", sDisplayValue);
-  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-
-  if (this._looksLikeMaterialCode(sDisplayValue)) {
-    oChangeModel.setProperty(
-      "/BackendMaterial",
-      this._toBackendMaterial(sDisplayValue)
-    );
-  } else {
-    oChangeModel.setProperty("/BackendMaterial", "");
-  }
-
-  this._requestMaterialSuggestions(sDisplayValue);
-
-  this._clearFetchedData();
-},
-
-onMaterialSuggestionSelected: function (oEvent) {
-  var oSelectedRow = oEvent.getParameter("selectedRow");
-  var oSelectedItem = oEvent.getParameter("selectedItem");
-  var oChangeModel = this.getView().getModel("changeModel");
-  var oContext;
-  var oData;
-  var sMaterial;
-
-  if (!oChangeModel) {
-    return;
-  }
-
-  if (oSelectedRow) {
-    oContext = oSelectedRow.getBindingContext("materialSuggestModel");
-
-    if (oContext) {
-      oData = oContext.getObject();
-      sMaterial = oData.Product;
-    }
-  }
-
-  if (!sMaterial && oSelectedItem) {
-    sMaterial = oSelectedItem.getKey() || oSelectedItem.getText();
-  }
-
-  if (!sMaterial) {
-    return;
-  }
-
-  sMaterial = this._toDisplayMaterial(sMaterial);
-
-  oChangeModel.setProperty("/Material", sMaterial);
-  oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sMaterial));
-  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-
-  this._clearFetchedData();
-},
-
-_filterMaterialSuggestions: function (sValue) {
-  var sSearch = String(sValue || "").toUpperCase();
-  var sSearchTrimmed = sSearch.trim();
-  var sBackendSearch;
-  var aItems;
-
-  if (!sSearchTrimmed || sSearchTrimmed.length < 1) {
-    return [];
-  }
-
-  sBackendSearch = this._toBackendMaterial(sSearchTrimmed).toUpperCase();
-
-  aItems = this._aMaterialVHCache.filter(
-    function (oItem) {
-      var sProduct = String(oItem.Product || "").toUpperCase();
-      var sDisplayProduct = this._toDisplayMaterial(sProduct).toUpperCase();
-      var sDescription = this._getMaterialDescription(oItem).toUpperCase();
-
-      return (
-        sProduct.indexOf(sSearchTrimmed) !== -1 ||
-        sProduct.indexOf(sBackendSearch) !== -1 ||
-        sDisplayProduct.indexOf(sSearchTrimmed) !== -1 ||
-        sDescription.indexOf(sSearchTrimmed) !== -1
-      );
-    }.bind(this)
-  );
-
-  return aItems.slice(0, 20);
-},
-
-_requestMaterialSuggestions: function (sValue) {
-  var that = this;
-  var sSearch = String(sValue || "").trim();
-  var oSuggestionModel = this.getView().getModel("materialSuggestModel");
-  var iRequestId = (this._iMaterialSuggestRequest || 0) + 1;
-
-  this._iMaterialSuggestRequest = iRequestId;
-
-  clearTimeout(this._iMaterialSuggestTimer);
-
-  if (!sSearch) {
-    oSuggestionModel.setProperty("/items", []);
-    return;
-  }
-
-  this._iMaterialSuggestTimer = setTimeout(function () {
-    ValueHelpService.searchMaterialVHData(that, sSearch, "", 0, 20)
-      .then(function (oResultModel) {
-        if (that._iMaterialSuggestRequest !== iRequestId) {
+        if (!oChangeModel) {
           return;
         }
-        oSuggestionModel.setProperty(
-          "/items",
-          oResultModel.getProperty("/items") || []
+
+        /*
+         * Do not trim during live typing.
+         * Product description can contain spaces.
+         */
+        sRawValue = String(oInput.getValue() || "");
+        sDisplayValue = sRawValue.toUpperCase();
+
+        oInput.setValue(sDisplayValue);
+
+        oChangeModel.setProperty("/Material", sDisplayValue);
+        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+
+        if (this._looksLikeMaterialCode(sDisplayValue)) {
+          oChangeModel.setProperty(
+            "/BackendMaterial",
+            this._toBackendMaterial(sDisplayValue)
+          );
+        } else {
+          oChangeModel.setProperty("/BackendMaterial", "");
+        }
+
+        this._requestMaterialSuggestions(sDisplayValue);
+
+        this._clearFetchedData();
+      },
+
+      onMaterialSuggestionSelected: function (oEvent) {
+        var oSelectedRow = oEvent.getParameter("selectedRow");
+        var oSelectedItem = oEvent.getParameter("selectedItem");
+        var oChangeModel = this.getView().getModel("changeModel");
+        var oContext;
+        var oData;
+        var sMaterial;
+
+        if (!oChangeModel) {
+          return;
+        }
+
+        if (oSelectedRow) {
+          oContext = oSelectedRow.getBindingContext("materialSuggestModel");
+
+          if (oContext) {
+            oData = oContext.getObject();
+            sMaterial = oData.Product;
+          }
+        }
+
+        if (!sMaterial && oSelectedItem) {
+          sMaterial = oSelectedItem.getKey() || oSelectedItem.getText();
+        }
+
+        if (!sMaterial) {
+          return;
+        }
+
+        sMaterial = this._toDisplayMaterial(sMaterial);
+
+        oChangeModel.setProperty("/Material", sMaterial);
+        oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sMaterial));
+        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+
+        this._clearFetchedData();
+      },
+
+      _filterMaterialSuggestions: function (sValue) {
+        var sSearch = String(sValue || "").toUpperCase();
+        var sSearchTrimmed = sSearch.trim();
+        var sBackendSearch;
+        var aItems;
+
+        if (!sSearchTrimmed || sSearchTrimmed.length < 1) {
+          return [];
+        }
+
+        sBackendSearch = this._toBackendMaterial(sSearchTrimmed).toUpperCase();
+
+        aItems = this._aMaterialVHCache.filter(
+          function (oItem) {
+            var sProduct = String(oItem.Product || "").toUpperCase();
+            var sDisplayProduct = this._toDisplayMaterial(sProduct).toUpperCase();
+            var sDescription = this._getMaterialDescription(oItem).toUpperCase();
+
+            return (
+              sProduct.indexOf(sSearchTrimmed) !== -1 ||
+              sProduct.indexOf(sBackendSearch) !== -1 ||
+              sDisplayProduct.indexOf(sSearchTrimmed) !== -1 ||
+              sDescription.indexOf(sSearchTrimmed) !== -1 ||
+              String(oItem.PrintName || "").toUpperCase().indexOf(sSearchTrimmed) !== -1
+            );
+          }.bind(this)
         );
-      })
-      .catch(function () {
-        oSuggestionModel.setProperty("/items", []);
-      });
-  }, 300);
-},
 
-_resolveTypedMaterialOrDescriptionToProduct: function (
-  sValue,
-  sTargetProperty
-) {
-  var oChangeModel = this.getView().getModel("changeModel");
-  var sSearch = String(sValue || "").trim().toUpperCase();
+        return aItems.slice(0, 20);
+      },
 
-  if (!oChangeModel || !sSearch) {
-    return Promise.resolve("");
-  }
+      _requestMaterialSuggestions: function (sValue) {
+        var that = this;
+        var sSearch = String(sValue || "").trim();
+        var oSuggestionModel = this.getView().getModel("materialSuggestModel");
+        var iRequestId = (this._iMaterialSuggestRequest || 0) + 1;
 
-  return ValueHelpService.searchMaterialVHData(this, sSearch, "", 0, 50).then(
-    function (oResultModel) {
-      var aMatches = oResultModel.getProperty("/items") || [];
-      var oMatched = aMatches[0];
-      var sProduct = oMatched
-        ? this._toDisplayMaterial(oMatched.Product || "")
-        : "";
+        this._iMaterialSuggestRequest = iRequestId;
 
-      if (!sProduct) {
-        return "";
-      }
+        clearTimeout(this._iMaterialSuggestTimer);
 
-      oChangeModel.setProperty(sTargetProperty, sProduct);
-      oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sProduct));
-      oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+        if (!sSearch) {
+          oSuggestionModel.setProperty("/items", []);
+          return;
+        }
 
-      return sProduct;
-    }.bind(this)
-  );
-},
+        this._iMaterialSuggestTimer = setTimeout(function () {
+          ValueHelpService.searchMaterialVHData(that, sSearch, "", 0, 20)
+            .then(function (oResultModel) {
+              if (that._iMaterialSuggestRequest !== iRequestId) {
+                return;
+              }
+              oSuggestionModel.setProperty(
+                "/items",
+                oResultModel.getProperty("/items") || []
+              );
+            })
+            .catch(function () {
+              oSuggestionModel.setProperty("/items", []);
+            });
+        }, 300);
+      },
 
-_ensureMaterialCacheLoaded: function () {
-  return Promise.resolve();
-},
+      _resolveTypedMaterialOrDescriptionToProduct: function (
+        sValue,
+        sTargetProperty
+      ) {
+        var oChangeModel = this.getView().getModel("changeModel");
+        var sSearch = String(sValue || "").trim().toUpperCase();
 
-_getMaterialDescription: function (oItem) {
-  return String(
-    oItem.ProductDescription ||
-      oItem.ProductName ||
-      oItem.MaterialDescription ||
-      oItem.Description ||
-      ""
-  );
-},
+        if (!oChangeModel || !sSearch) {
+          return Promise.resolve("");
+        }
 
-onPlantLiveChange: function (oEvent) {
-  var oInput = oEvent.getSource();
-  var oChangeModel = this.getView().getModel("changeModel");
-  var sValue;
+        return ValueHelpService.searchMaterialVHData(this, sSearch, "", 0, 50).then(
+          function (oResultModel) {
+            var aMatches = oResultModel.getProperty("/items") || [];
+            var oMatched = aMatches[0];
+            var sProduct = oMatched
+              ? this._toDisplayMaterial(oMatched.Product || "")
+              : "";
 
-  if (!oChangeModel) {
-    return;
-  }
+            if (!sProduct) {
+              return "";
+            }
 
-  sValue = this._extractPlantCode(oInput.getValue());
+            oChangeModel.setProperty(sTargetProperty, sProduct);
+            oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sProduct));
+            oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-  oInput.setValue(sValue);
+            return sProduct;
+          }.bind(this)
+        );
+      },
 
-  oChangeModel.setProperty("/Plant", sValue);
-  oChangeModel.setProperty("/PlantName", "");
-  oChangeModel.setProperty("/PlantDisplay", sValue);
-  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+      _ensureMaterialCacheLoaded: function () {
+        return Promise.resolve();
+      },
 
-  this.getView()
-    .getModel("plantSuggestModel")
-    .setProperty("/items", this._filterPlantSuggestions(sValue));
+      _getMaterialDescription: function (oItem) {
+        return String(
+          oItem.ProductDescription ||
+          oItem.ProductName ||
+          oItem.MaterialDescription ||
+          oItem.Description ||
+          ""
+        );
+      },
 
-  this._clearFetchedData();
-},
+      onPlantLiveChange: function (oEvent) {
+        var oInput = oEvent.getSource();
+        var oChangeModel = this.getView().getModel("changeModel");
+        var sValue;
 
-onPlantSuggestionSelected: function (oEvent) {
-  var oSelectedRow = oEvent.getParameter("selectedRow");
-  var oSelectedItem = oEvent.getParameter("selectedItem");
-  var oChangeModel = this.getView().getModel("changeModel");
-  var oContext;
-  var oData;
-  var sPlant;
+        if (!oChangeModel) {
+          return;
+        }
 
-  if (!oChangeModel) {
-    return;
-  }
+        sValue = this._extractPlantCode(oInput.getValue());
 
-  if (oSelectedRow) {
-    oContext = oSelectedRow.getBindingContext("plantSuggestModel");
+        oInput.setValue(sValue);
 
-    if (oContext) {
-      oData = oContext.getObject();
-      sPlant = oData.Plant;
-    }
-  }
+        oChangeModel.setProperty("/Plant", sValue);
+        oChangeModel.setProperty("/PlantName", "");
+        oChangeModel.setProperty("/PlantDisplay", sValue);
+        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
 
-  if (!sPlant && oSelectedItem) {
-    sPlant = oSelectedItem.getKey() || oSelectedItem.getText();
-  }
+        this.getView()
+          .getModel("plantSuggestModel")
+          .setProperty("/items", this._filterPlantSuggestions(sValue));
 
-  if (!sPlant) {
-    return;
-  }
+        this._clearFetchedData();
+      },
 
-  if (!oData) {
-    oData = {
-      Plant: sPlant,
-      PlantName: ""
-    };
-  }
+      onPlantSuggestionSelected: function (oEvent) {
+        var oSelectedRow = oEvent.getParameter("selectedRow");
+        var oSelectedItem = oEvent.getParameter("selectedItem");
+        var oChangeModel = this.getView().getModel("changeModel");
+        var oContext;
+        var oData;
+        var sPlant;
 
-  this._setPlantSelection(oData);
+        if (!oChangeModel) {
+          return;
+        }
 
-  this._clearFetchedData();
-},
+        if (oSelectedRow) {
+          oContext = oSelectedRow.getBindingContext("plantSuggestModel");
 
-_filterPlantSuggestions: function (sValue) {
-  var sSearch = this._toUpperTrim(sValue);
-  var aItems;
+          if (oContext) {
+            oData = oContext.getObject();
+            sPlant = oData.Plant;
+          }
+        }
 
-  if (!sSearch || sSearch.length < 1) {
-    return [];
-  }
+        if (!sPlant && oSelectedItem) {
+          sPlant = oSelectedItem.getKey() || oSelectedItem.getText();
+        }
 
-  aItems = this._aPlantVHCache.filter(
-    function (oItem) {
-      var sAllText = this._getSearchableTextFromObject(oItem);
+        if (!sPlant) {
+          return;
+        }
 
-      return sAllText.indexOf(sSearch) !== -1;
-    }.bind(this)
-  );
+        if (!oData) {
+          oData = {
+            Plant: sPlant,
+            PlantName: ""
+          };
+        }
 
-  return aItems.slice(0, 20);
-},
+        this._setPlantSelection(oData);
 
-_getSearchableTextFromObject: function (oObject) {
-  var aValues = [];
+        this._clearFetchedData();
+      },
 
-  Object.keys(oObject || {}).forEach(function (sKey) {
-    var vValue = oObject[sKey];
+      _filterPlantSuggestions: function (sValue) {
+        var sSearch = this._toUpperTrim(sValue);
+        var aItems;
 
-    if (
-      vValue !== null &&
-      vValue !== undefined &&
-      typeof vValue !== "object" &&
-      typeof vValue !== "function"
-    ) {
-      aValues.push(String(vValue));
-    }
-  });
+        if (!sSearch || sSearch.length < 1) {
+          return [];
+        }
 
-  return aValues.join(" ").toUpperCase();
-},
+        aItems = this._aPlantVHCache.filter(
+          function (oItem) {
+            var sAllText = this._getSearchableTextFromObject(oItem);
 
-_toUpperTrim: function (sValue) {
-  return String(sValue || "").trim().toUpperCase();
-},
+            return sAllText.indexOf(sSearch) !== -1;
+          }.bind(this)
+        );
 
-_extractPlantCode: function (sValue) {
-  return this._toUpperTrim(String(sValue || "").split(" - ")[0]);
-},
+        return aItems.slice(0, 20);
+      },
 
-_getPlantName: function (oData) {
-  return String(
-    oData.PlantName ||
-      oData.plantName ||
-      oData.Name ||
-      oData.PlantDescription ||
-      ""
-  ).trim();
-},
+      _getSearchableTextFromObject: function (oObject) {
+        var aValues = [];
 
-_formatPlantDisplay: function (sPlant, sPlantName) {
-  sPlant = this._toUpperTrim(sPlant);
-  sPlantName = String(sPlantName || "").trim();
+        Object.keys(oObject || {}).forEach(function (sKey) {
+          var vValue = oObject[sKey];
 
-  if (!sPlant) {
-    return "";
-  }
+          if (
+            vValue !== null &&
+            vValue !== undefined &&
+            typeof vValue !== "object" &&
+            typeof vValue !== "function"
+          ) {
+            aValues.push(String(vValue));
+          }
+        });
 
-  if (!sPlantName) {
-    return sPlant;
-  }
+        return aValues.join(" ").toUpperCase();
+      },
 
-  return sPlant + " - " + sPlantName;
-},
+      _toUpperTrim: function (sValue) {
+        return String(sValue || "").trim().toUpperCase();
+      },
 
-_setPlantSelection: function (oData) {
-  var oChangeModel = this.getView().getModel("changeModel");
-  var sPlant = this._toUpperTrim(oData && oData.Plant);
-  var sPlantName = this._getPlantName(oData || {});
+      _extractPlantCode: function (sValue) {
+        return this._toUpperTrim(String(sValue || "").split(" - ")[0]);
+      },
 
-  if (!oChangeModel) {
-    return;
-  }
+      _getPlantName: function (oData) {
+        return String(
+          oData.PlantName ||
+          oData.plantName ||
+          oData.Name ||
+          oData.PlantDescription ||
+          ""
+        ).trim();
+      },
 
-  oChangeModel.setProperty("/Plant", sPlant);
-  oChangeModel.setProperty("/PlantName", sPlantName);
-  oChangeModel.setProperty(
-    "/PlantDisplay",
-    this._formatPlantDisplay(sPlant, sPlantName)
-  );
-  oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-},
+      _formatPlantDisplay: function (sPlant, sPlantName) {
+        sPlant = this._toUpperTrim(sPlant);
+        sPlantName = String(sPlantName || "").trim();
 
-_looksLikeMaterialCode: function (sValue) {
-  sValue = String(sValue || "").trim();
+        if (!sPlant) {
+          return "";
+        }
 
-  return !!sValue;
-},
+        if (!sPlantName) {
+          return sPlant;
+        }
 
-_toDisplayMaterial: function (sMaterial) {
-  sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
-  sMaterial = String(sMaterial || "").trim().toUpperCase();
+        return sPlant + " - " + sPlantName;
+      },
 
-  /*
-   * Do not show leading zero on screen.
-   */
-  if (/^0+\d+$/.test(sMaterial)) {
-    return String(Number(sMaterial));
-  }
+      _setPlantSelection: function (oData) {
+        var oChangeModel = this.getView().getModel("changeModel");
+        var sPlant = this._toUpperTrim(oData && oData.Plant);
+        var sPlantName = this._getPlantName(oData || {});
 
-  return sMaterial;
-},
+        if (!oChangeModel) {
+          return;
+        }
 
-_getBackendMaterialFromChangeModel: function () {
-  var oChangeModel = this.getView().getModel("changeModel");
-  var sMaterial;
+        oChangeModel.setProperty("/Plant", sPlant);
+        oChangeModel.setProperty("/PlantName", sPlantName);
+        oChangeModel.setProperty(
+          "/PlantDisplay",
+          this._formatPlantDisplay(sPlant, sPlantName)
+        );
+        oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+      },
 
-  if (!oChangeModel) {
-    return "";
-  }
+      _looksLikeMaterialCode: function (sValue) {
+        sValue = String(sValue || "").trim();
 
-  sMaterial =
-    oChangeModel.getProperty("/BackendMaterial") ||
-    oChangeModel.getProperty("/Material") ||
-    "";
+        return !!sValue;
+      },
 
-  return this._toBackendMaterial(sMaterial);
-},
+      _toDisplayMaterial: function (sMaterial) {
+        sMaterial = FormatterHelper.normalizeMaterialInput(sMaterial);
+        sMaterial = String(sMaterial || "").trim().toUpperCase();
+
+        /*
+         * Do not show leading zero on screen.
+         */
+        if (/^0+\d+$/.test(sMaterial)) {
+          return String(Number(sMaterial));
+        }
+
+        return sMaterial;
+      },
+
+      _getBackendMaterialFromChangeModel: function () {
+        var oChangeModel = this.getView().getModel("changeModel");
+        var sMaterial;
+
+        if (!oChangeModel) {
+          return "";
+        }
+
+        sMaterial =
+          oChangeModel.getProperty("/BackendMaterial") ||
+          oChangeModel.getProperty("/Material") ||
+          "";
+
+        return this._toBackendMaterial(sMaterial);
+      },
       _escapeODataValue: function (sValue) {
         return String(sValue || "").replace(/'/g, "''");
       },

@@ -54,10 +54,12 @@ sap.ui.define(
         var that = this;
         var oComponentInput;
         var oDescriptionInput;
+        var oPrintNameInput;
 
         var fnDoSearch = function () {
           var sComponent = String(oComponentInput.getValue() || "").toUpperCase();
           var sDescription = oDescriptionInput.getValue();
+          var sPrintName = oPrintNameInput.getValue();
           var oHeaderModel = oController.getOwnerComponent().getModel("headerModel");
           var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
 
@@ -75,7 +77,8 @@ sap.ui.define(
                   "ProductDescription",
                   FilterOperator.Contains,
                   sComponent
-                )
+                ),
+                new Filter("PrintName", FilterOperator.Contains, sComponent)
               ],
               and: false
             }));
@@ -87,6 +90,10 @@ sap.ui.define(
               FilterOperator.Contains,
               sDescription
             ));
+          }
+
+          if (sPrintName) {
+            aFilters.push(new Filter("PrintName", FilterOperator.Contains, sPrintName));
           }
 
           var oBinding = oController._oComponentTable.getBinding("items");
@@ -107,6 +114,9 @@ sap.ui.define(
         oDescriptionInput = new Input({
           submit: fnDoSearch
         });
+
+        oPrintNameInput = new Input({ submit: fnDoSearch });
+        oController._oComponentPrintNameInput = oPrintNameInput;
 
         oController._oComponentInput = oComponentInput;
         oController._oComponentDescriptionInput = oDescriptionInput;
@@ -131,6 +141,13 @@ sap.ui.define(
               label: "Description",
               visibleInFilterBar: true,
               control: oDescriptionInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "PrintName",
+              label: "Print Name",
+              visibleInFilterBar: true,
+              control: oPrintNameInput
             })
           ]
         });
@@ -146,6 +163,9 @@ sap.ui.define(
             }),
             new Column({
               header: new Label({ text: "Description" })
+            }),
+            new Column({
+              header: new Label({ text: "Print Name" })
             }),
             new Column({
               header: new Label({ text: "UOM" })
@@ -166,6 +186,7 @@ sap.ui.define(
             cells: [
               new Text({ text: "{component}" }),
               new Text({ text: "{ProductDescription}" }),
+              new Text({ text: "{PrintName}" }),
               new Text({ text: "{uom}" })
             ]
           })
@@ -218,6 +239,10 @@ sap.ui.define(
       clearComponentSearch: function (oController) {
         if (oController._oComponentInput) {
           oController._oComponentInput.setValue("");
+        }
+
+        if (oController._oComponentPrintNameInput) {
+          oController._oComponentPrintNameInput.setValue("");
         }
 
         if (oController._oComponentDescriptionInput) {

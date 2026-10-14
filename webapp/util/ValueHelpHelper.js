@@ -259,6 +259,10 @@ sap.ui.define(
             {
               name: "ProductDescription",
               label: "Product Description"
+            },
+            {
+              name: "PrintName",
+              label: "Print Name"
             }
           ],
 
@@ -270,6 +274,10 @@ sap.ui.define(
             {
               name: "ProductDescription",
               label: "Product Description"
+            },
+            {
+              name: "PrintName",
+              label: "Print Name"
             }
           ],
 

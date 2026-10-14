@@ -78,21 +78,17 @@ sap.ui.define(
         var iSafeLength = Math.min(Math.max(Number(iLength) || 50, 1), 100);
 
         if (sProductSearch) {
-          aFilters.push(new Filter({
-            filters: [
-              new Filter(
-                "Product",
-                FilterOperator.Contains,
-                sProductSearch
-              ),
-              new Filter(
-                "ProductDescription",
-                FilterOperator.Contains,
-                sProductSearch
-              )
-            ],
-            and: false
-          }));
+          // Match every word across the code, description and print name.
+          sProductSearch.split(/\s+/).forEach(function (sTerm) {
+            aFilters.push(new Filter({
+              filters: [
+                new Filter("Product", FilterOperator.Contains, sTerm),
+                new Filter("ProductDescription", FilterOperator.Contains, sTerm),
+                new Filter("PrintName", FilterOperator.Contains, sTerm)
+              ],
+              and: false
+            }));
+          });
         }
 
         if (sDescriptionSearch) {

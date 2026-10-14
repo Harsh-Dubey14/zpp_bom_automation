@@ -1377,7 +1377,8 @@ sap.ui.define(
               sProduct.indexOf(sSearchTrimmed) !== -1 ||
               sProduct.indexOf(sBackendSearch) !== -1 ||
               sDisplayProduct.indexOf(sSearchTrimmed) !== -1 ||
-              sDescription.indexOf(sSearchTrimmed) !== -1
+              sDescription.indexOf(sSearchTrimmed) !== -1 ||
+              String(oItem.PrintName || "").toUpperCase().indexOf(sSearchTrimmed) !== -1
             );
           }.bind(this)
         );

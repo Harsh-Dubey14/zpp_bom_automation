@@ -109,6 +109,7 @@
                                         <Column>
                                             <Label text="Description" />
                                         </Column>
+                                        <Column><Label text="Print Name" /></Column>
                                     </suggestionColumns>
 
                                     <suggestionRows>
@@ -120,6 +121,7 @@
                                                 <Text
                                                     text="{materialSuggestModel>ProductDescription}"
                                                 />
+                                                <Text text="{materialSuggestModel>PrintName}" />
                                             </cells>
                                         </ColumnListItem>
                                     </suggestionRows>
@@ -308,7 +310,8 @@
                                 <Column>
                                     <Label text="Description" />
                                 </Column>
-                            </suggestionColumns>
+                                        <Column><Label text="Print Name" /></Column>
+                                    </suggestionColumns>
 
                             <suggestionRows>
                                 <ColumnListItem>
@@ -319,7 +322,8 @@
                                         <Text
                                             text="{materialSuggestModel>ProductDescription}"
                                         />
-                                    </cells>
+                                        <Text text="{materialSuggestModel>PrintName}" />
+                                            </cells>
                                 </ColumnListItem>
                             </suggestionRows>
                         </Input>
