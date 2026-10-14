@@ -901,9 +901,8 @@ sap.ui.define(
          * Product description can contain spaces.
          */
         sRawValue = String(oInput.getValue() || "");
-        sDisplayValue = sRawValue.toUpperCase();
+        sDisplayValue = sRawValue;
 
-        oInput.setValue(sDisplayValue);
 
         oChangeModel.setProperty("/Material", sDisplayValue);
         oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
@@ -917,7 +916,6 @@ sap.ui.define(
           oChangeModel.setProperty("/BackendMaterial", "");
         }
 
-        this._requestMaterialSuggestions(sDisplayValue);
 
         this._clearFetchedData();
       },
@@ -991,6 +989,10 @@ sap.ui.define(
         return aItems.slice(0, 20);
       },
 
+      onMaterialSuggest: function (oEvent) {
+        this._requestMaterialSuggestions(oEvent.getParameter("suggestValue"));
+      },
+
       _requestMaterialSuggestions: function (sValue) {
         var that = this;
         var sSearch = String(sValue || "").trim();
@@ -1018,6 +1020,7 @@ sap.ui.define(
               );
             })
             .catch(function () {
+              if (that._iMaterialSuggestRequest !== iRequestId) { return; }
               oSuggestionModel.setProperty("/items", []);
             });
         }, 300);

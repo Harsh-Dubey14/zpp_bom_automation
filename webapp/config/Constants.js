@@ -71,13 +71,13 @@ sap.ui.define([], function () {
 
   VALUE_HELP: {
   MATERIAL_PATH: "/product_plant_vh",
-  MATERIAL_SELECT: ["Product", "ProductDescription", "PrintName"],
+  MATERIAL_SELECT: ["Product", "ProductDescription"],
 
   PLANT_PATH: "/plant_vh",
   PLANT_SELECT: ["Plant", "PlantName"],
 
   COMPONENT_PATH: "/plant_component_vh",
-  COMPONENT_SELECT: ["component", "ProductDescription", "PrintName", "uom"],
+  COMPONENT_SELECT: ["component", "ProductDescription", "uom"],
 
   UOM_PATH: "/produtuom",
   UOM_SELECT: ["Product", "AlternativeUnit", "BaseUnit"],

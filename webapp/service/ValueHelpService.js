@@ -6,9 +6,10 @@ sap.ui.define(
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "zppbomautomation/config/Constants",
-    "zppbomautomation/util/FormatterHelper"
+    "zppbomautomation/util/FormatterHelper",
+    "zppbomautomation/service/ProductSearchService"
   ],
-  function (JSONModel, Filter, FilterOperator, Constants, FormatterHelper) {
+  function (JSONModel, Filter, FilterOperator, Constants, FormatterHelper, ProductSearchService) {
     "use strict";
 
     var ValueHelpService = {
@@ -77,47 +78,16 @@ sap.ui.define(
         var iSafeStart = Math.max(Number(iStart) || 0, 0);
         var iSafeLength = Math.min(Math.max(Number(iLength) || 50, 1), 100);
 
-        if (sProductSearch) {
-          // Match every word across the code, description and print name.
-          sProductSearch.split(/\s+/).forEach(function (sTerm) {
-            aFilters.push(new Filter({
-              filters: [
-                new Filter("Product", FilterOperator.Contains, sTerm),
-                new Filter("ProductDescription", FilterOperator.Contains, sTerm),
-                new Filter("PrintName", FilterOperator.Contains, sTerm)
-              ],
-              and: false
-            }));
-          });
-        }
-
         if (sDescriptionSearch) {
-          aFilters.push(new Filter(
-            "ProductDescription",
-            FilterOperator.Contains,
-            sDescriptionSearch
-          ));
+          aFilters.push(new Filter("ProductDescription", FilterOperator.Contains, sDescriptionSearch));
         }
-
-        var oListBinding = oODataModel.bindList(
-          Constants.VALUE_HELP.MATERIAL_PATH,
-          null,
-          null,
-          aFilters,
-          { $select: Constants.VALUE_HELP.MATERIAL_SELECT.join(",") }
-        );
-
-        return oListBinding.requestContexts(iSafeStart, iSafeLength).then(
-          function (aContexts) {
-            return new JSONModel({
-              items: ValueHelpService._getUniqueProducts(
-                aContexts.map(function (oContext) {
-                  return oContext.getObject();
-                })
-              )
-            });
-          }
-        );
+        return ProductSearchService.search(
+          oODataModel, Constants.VALUE_HELP.MATERIAL_PATH,
+          Constants.VALUE_HELP.MATERIAL_SELECT, "Product", sProductSearch,
+          aFilters, iSafeStart, iSafeLength
+        ).then(function (aItems) {
+          return new JSONModel({ items: aItems });
+        });
       },
 
       findMaterialRemote: function (oController, sMaterial) {

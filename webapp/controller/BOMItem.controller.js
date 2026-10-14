@@ -733,6 +733,7 @@ sap.ui.define(
 
           that.getView().setModel(new JSONModel({ items: aItems }), "componentSuggestModel");
         }).catch(function () {
+          if (that._iComponentSuggestRequest !== iRequestId) { return; }
           that.getView().setModel(new JSONModel({ items: [] }), "componentSuggestModel");
         });
       },

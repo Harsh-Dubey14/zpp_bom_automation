@@ -87,9 +87,9 @@
                             filterSuggests="false"
                             startSuggestion="1"
                             liveChange=".onMaterialLiveChange"
+                                    suggest=".onMaterialSuggest"
                             suggestionItemSelected=".onMaterialSuggestionSelected"
                             suggestionRows="{materialSuggestModel>/items}"
-                            maxLength="40"
                             placeholder="Enter Material / Description"
                         >
                             <suggestionColumns>

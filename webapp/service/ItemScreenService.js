@@ -6,14 +6,16 @@ sap.ui.define(
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "zppbomautomation/config/Constants",
-    "zppbomautomation/util/FormatterHelper"
+    "zppbomautomation/util/FormatterHelper",
+    "zppbomautomation/service/ProductSearchService"
   ],
   function (
     JSONModel,
     Filter,
     FilterOperator,
     Constants,
-    FormatterHelper
+    FormatterHelper,
+    ProductSearchService
   ) {
     "use strict";
 
@@ -172,54 +174,16 @@ sap.ui.define(
           var iSafeStart = Math.max(Number(iStart) || 0, 0);
           var iSafeLength = Math.min(Math.max(Number(iLength) || 50, 1), 100);
 
-          if (sComponentSearch) {
-            // Match every word across the code, description and print name.
-            sComponentSearch.split(/\s+/).forEach(function (sTerm) {
-              aFilters.push(new Filter({
-                filters: [
-                  new Filter("component", FilterOperator.Contains, sTerm),
-                  new Filter("ProductDescription", FilterOperator.Contains, sTerm),
-                  new Filter("PrintName", FilterOperator.Contains, sTerm)
-                ],
-                and: false
-              }));
-            });
-          }
-
           if (sDescriptionSearch) {
-            aFilters.push(new Filter(
-              "ProductDescription",
-              FilterOperator.Contains,
-              sDescriptionSearch
-            ));
+            aFilters.push(new Filter("ProductDescription", FilterOperator.Contains, sDescriptionSearch));
           }
-
-          var oListBinding = oODataModel.bindList(
-            Constants.VALUE_HELP.COMPONENT_PATH,
-            null,
-            null,
-            aFilters,
-            {
-              $select: Constants.VALUE_HELP.COMPONENT_SELECT.join(",")
-            }
-          );
-
-          oListBinding
-            .requestContexts(iSafeStart, iSafeLength)
-            .then(function (aContexts) {
-              var aResults = aContexts.map(function (oContext) {
-                return oContext.getObject();
-              });
-
-              var oResultModel = new JSONModel({
-                items: aResults
-              });
-
-              resolve(oResultModel);
-            })
-            .catch(function (oError) {
-              reject(oError);
-            });
+          ProductSearchService.search(
+            oODataModel, Constants.VALUE_HELP.COMPONENT_PATH,
+            Constants.VALUE_HELP.COMPONENT_SELECT, "component", sComponentSearch,
+            aFilters, iSafeStart, iSafeLength
+          ).then(function (aItems) {
+            resolve(new JSONModel({ items: aItems }));
+          }).catch(reject);
         });
       },
 

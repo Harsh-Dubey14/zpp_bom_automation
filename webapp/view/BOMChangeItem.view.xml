@@ -251,7 +251,6 @@
                                     suggestionRows="{componentSuggestModel>/items}"
                                     change=".onComponentChange"
                                     editable="{= ${resultModel>/Editable} &amp;&amp; ${itemModel>rowStatus} !== 'DELETED' }"
-                                    maxLength="40"
                                     placeholder="Enter Component"
                                 >
                                     <suggestionColumns>

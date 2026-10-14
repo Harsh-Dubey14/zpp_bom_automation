@@ -284,7 +284,6 @@
                                     suggestionRows="{componentSuggestModel>/items}"
                                     change=".onComponentChange"
                                     editable="{resultModel>/Editable}"
-                                    maxLength="40"
                                     placeholder="Enter Component"
                                 >
                                     <suggestionColumns>

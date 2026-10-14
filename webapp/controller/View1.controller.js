@@ -1265,9 +1265,8 @@ sap.ui.define(
         }
 
         sRawValue = String(oInput.getValue() || "");
-        sDisplayValue = sRawValue.toUpperCase();
+        sDisplayValue = sRawValue;
 
-        oInput.setValue(sDisplayValue);
         oHeaderModel.setProperty(sTargetProperty, sDisplayValue);
         oHeaderModel.setProperty("/BomUsage", Constants.BOM_USAGE);
 
@@ -1279,7 +1278,6 @@ sap.ui.define(
           oHeaderModel.setProperty("/BackendCopyMaterial", "");
         }
 
-        this._requestMaterialSuggestions(sDisplayValue);
 
         if (bResetValidation) {
           this._invalidatePrepareValidation(oHeaderModel);
@@ -1386,6 +1384,10 @@ sap.ui.define(
         return aItems.slice(0, 20);
       },
 
+      onMaterialSuggest: function (oEvent) {
+        this._requestMaterialSuggestions(oEvent.getParameter("suggestValue"));
+      },
+
       _requestMaterialSuggestions: function (sValue) {
         var that = this;
         var sSearch = String(sValue || "").trim();
@@ -1412,6 +1414,7 @@ sap.ui.define(
               }
             })
             .catch(function () {
+              if (that._iMaterialSuggestRequest !== iRequestId) { return; }
               oSuggestionModel.setProperty("/items", []);
             });
         }, 300);

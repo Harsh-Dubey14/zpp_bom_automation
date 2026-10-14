@@ -96,9 +96,9 @@
                                     filterSuggests="false"
                                     startSuggestion="1"
                                     liveChange=".onMaterialLiveChange"
+                                    suggest=".onMaterialSuggest"
                                     suggestionItemSelected=".onMaterialSuggestionSelected"
                                     suggestionRows="{materialSuggestModel>/items}"
-                                    maxLength="40"
                                     width="20rem"
                                     placeholder="Enter Material / Description"
                                 >
@@ -298,9 +298,9 @@
                             filterSuggests="false"
                             startSuggestion="1"
                             liveChange=".onCopyMaterialLiveChange"
+                            suggest=".onMaterialSuggest"
                             suggestionItemSelected=".onCopyMaterialSuggestionSelected"
                             suggestionRows="{materialSuggestModel>/items}"
-                            maxLength="40"
                             placeholder="Enter Copy Material / Description"
                         >
                             <suggestionColumns>
