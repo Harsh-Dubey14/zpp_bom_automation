@@ -451,7 +451,9 @@ sap.ui.define(
           IsChangeMode: true,
 
           Material:
-            oFirstItem.Material ||
+            (oRequest.searchMode === Constants.SEARCH_MODE.MATERIAL
+              ? oRequest.Material
+              : oFirstItem.Material) ||
             oRequest.Material ||
             "",
 
@@ -1037,25 +1039,33 @@ sap.ui.define(
           return Promise.resolve("");
         }
 
-        return ValueHelpService.searchMaterialVHData(this, sSearch, "", 0, 50).then(
-          function (oResultModel) {
+        var that = this;
+        var fnApplyProduct = function (oMatched) {
+          var sProduct = that._toDisplayMaterial(oMatched.Product || "");
+          if (!sProduct) { return ""; }
+          oChangeModel.setProperty(sTargetProperty, sProduct);
+          oChangeModel.setProperty("/BackendMaterial", that._toBackendMaterial(sProduct));
+          oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
+          return sProduct;
+        };
+
+        // A full product code must take precedence over description matches.
+        return ValueHelpService.findMaterialRemote(this, sSearch).then(function (oExact) {
+          if (oExact && that._toDisplayMaterial(oExact.Product) === that._toDisplayMaterial(sSearch)) {
+            return fnApplyProduct(oExact);
+          }
+          return ValueHelpService.searchMaterialVHData(that, sSearch, "", 0, 50).then(function (oResultModel) {
             var aMatches = oResultModel.getProperty("/items") || [];
-            var oMatched = aMatches[0];
-            var sProduct = oMatched
-              ? this._toDisplayMaterial(oMatched.Product || "")
-              : "";
-
-            if (!sProduct) {
-              return "";
+            var oExactMatch = aMatches.find(function (oItem) {
+              return that._toDisplayMaterial(oItem.Product) === that._toDisplayMaterial(sSearch);
+            });
+            if (oExactMatch) { return fnApplyProduct(oExactMatch); }
+            if (aMatches.length > 1) {
+              throw new Error("Multiple products match this text. Please select the required product from suggestions or value help.");
             }
-
-            oChangeModel.setProperty(sTargetProperty, sProduct);
-            oChangeModel.setProperty("/BackendMaterial", this._toBackendMaterial(sProduct));
-            oChangeModel.setProperty("/BomUsage", Constants.BOM_USAGE || "1");
-
-            return sProduct;
-          }.bind(this)
-        );
+            return aMatches.length ? fnApplyProduct(aMatches[0]) : "";
+          });
+        });
       },
 
       _ensureMaterialCacheLoaded: function () {
