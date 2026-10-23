@@ -22,7 +22,7 @@ builder:
         app:
           name: ZC_BOM_HDR_N
           package: ZPP_BOMCREATION_API
-          transport: EGFK902357
+          transport: EGFK904021
         exclude:
           - /test/
           - /localService/
