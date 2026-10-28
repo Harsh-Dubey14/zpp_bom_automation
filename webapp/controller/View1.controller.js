@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
  /* global Promise */
 /* eslint-disable max-params */
 sap.ui.define(

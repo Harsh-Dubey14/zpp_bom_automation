@@ -181,7 +181,8 @@ sap.ui.define(
           ProductSearchService.search(
             oODataModel, Constants.VALUE_HELP.COMPONENT_PATH,
             Constants.VALUE_HELP.COMPONENT_SELECT, "component", sComponentSearch,
-            aFilters, iSafeStart, iSafeLength
+            aFilters, iSafeStart, iSafeLength,
+            ["component", "ProductDescription", "PrintName", "SizeName", "ColourName"]
           ).then(function (aItems) {
             resolve(new JSONModel({ items: aItems }));
           }).catch(reject);

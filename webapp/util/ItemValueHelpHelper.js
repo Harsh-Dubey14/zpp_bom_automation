@@ -55,11 +55,15 @@ sap.ui.define(
         var oComponentInput;
         var oDescriptionInput;
         var oPrintNameInput;
+        var oSizeNameInput;
+        var oColourNameInput;
 
         var fnDoSearch = function () {
           var sComponent = String(oComponentInput.getValue() || "").toUpperCase();
           var sDescription = oDescriptionInput.getValue();
           var sPrintName = oPrintNameInput.getValue();
+          var sSizeName = oSizeNameInput.getValue();
+          var sColourName = oColourNameInput.getValue();
           var oHeaderModel = oController.getOwnerComponent().getModel("headerModel");
           var sPlant = oHeaderModel ? oHeaderModel.getProperty("/Plant") : "";
 
@@ -78,7 +82,9 @@ sap.ui.define(
                   FilterOperator.Contains,
                   sComponent
                 ),
-                new Filter("PrintName", FilterOperator.Contains, sComponent)
+                new Filter("PrintName", FilterOperator.Contains, sComponent),
+                new Filter("SizeName", FilterOperator.Contains, sComponent),
+                new Filter("ColourName", FilterOperator.Contains, sComponent)
               ],
               and: false
             }));
@@ -94,6 +100,14 @@ sap.ui.define(
 
           if (sPrintName) {
             aFilters.push(new Filter("PrintName", FilterOperator.Contains, sPrintName));
+          }
+
+          if (sSizeName) {
+            aFilters.push(new Filter("SizeName", FilterOperator.Contains, sSizeName));
+          }
+
+          if (sColourName) {
+            aFilters.push(new Filter("ColourName", FilterOperator.Contains, sColourName));
           }
 
           var oBinding = oController._oComponentTable.getBinding("items");
@@ -117,6 +131,11 @@ sap.ui.define(
 
         oPrintNameInput = new Input({ submit: fnDoSearch });
         oController._oComponentPrintNameInput = oPrintNameInput;
+
+        oSizeNameInput = new Input({ submit: fnDoSearch });
+        oColourNameInput = new Input({ submit: fnDoSearch });
+        oController._oComponentSizeNameInput = oSizeNameInput;
+        oController._oComponentColourNameInput = oColourNameInput;
 
         oController._oComponentInput = oComponentInput;
         oController._oComponentDescriptionInput = oDescriptionInput;
@@ -148,6 +167,20 @@ sap.ui.define(
               label: "Legacy Prduct Name",
               visibleInFilterBar: true,
               control: oPrintNameInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "SizeName",
+              label: "Size Name",
+              visibleInFilterBar: true,
+              control: oSizeNameInput
+            }),
+            new FilterGroupItem({
+              groupName: "basic",
+              name: "ColourName",
+              label: "Colour Name",
+              visibleInFilterBar: true,
+              control: oColourNameInput
             })
           ]
         });
@@ -169,7 +202,9 @@ sap.ui.define(
             }),
             new Column({
               header: new Label({ text: "UOM" })
-            })
+            }),
+            new Column({ header: new Label({ text: "Size Name" }) }),
+            new Column({ header: new Label({ text: "Colour Name" }) })
           ]
         });
 
@@ -187,7 +222,9 @@ sap.ui.define(
               new Text({ text: "{component}" }),
               new Text({ text: "{ProductDescription}" }),
               new Text({ text: "{PrintName}" }),
-              new Text({ text: "{uom}" })
+              new Text({ text: "{uom}" }),
+              new Text({ text: "{SizeName}" }),
+              new Text({ text: "{ColourName}" })
             ]
           })
         });
@@ -237,6 +274,14 @@ sap.ui.define(
       },
 
       clearComponentSearch: function (oController) {
+        if (oController._oComponentSizeNameInput) {
+          oController._oComponentSizeNameInput.setValue("");
+        }
+
+        if (oController._oComponentColourNameInput) {
+          oController._oComponentColourNameInput.setValue("");
+        }
+
         if (oController._oComponentInput) {
           oController._oComponentInput.setValue("");
         }

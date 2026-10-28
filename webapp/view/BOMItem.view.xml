@@ -291,6 +291,8 @@
                                         <Column><Text text="Description" /></Column>
                                         <Column><Text text="UoM" /></Column>
                                         <Column><Label text="Legacy Prduct Name" /></Column>
+                                        <Column><Text text="Size Name" /></Column>
+                                        <Column><Text text="Colour Name" /></Column>
                                     </suggestionColumns>
                                     <suggestionRows>
                                         <ColumnListItem>
@@ -299,6 +301,8 @@
                                                 <Text text="{componentSuggestModel>ProductDescription}" />
                                                 <Text text="{componentSuggestModel>uom}" />
                                                 <Text text="{componentSuggestModel>PrintName}" />
+                                                <Text text="{componentSuggestModel>SizeName}" />
+                                                <Text text="{componentSuggestModel>ColourName}" />
                                             </cells>
                                         </ColumnListItem>
                                     </suggestionRows>

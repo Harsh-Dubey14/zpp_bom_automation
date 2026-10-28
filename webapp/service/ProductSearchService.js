@@ -5,9 +5,9 @@ sap.ui.define([
   "use strict";
 
   return {
-    search: function (oModel, sPath, aSelect, sKey, sQuery, aBaseFilters, iStart, iLength) {
+    search: function (oModel, sPath, aSelect, sKey, sQuery, aBaseFilters, iStart, iLength, aSearchFields) {
       var aTerms = String(sQuery || "").trim().split(/\s+/).filter(Boolean);
-      var aFields = aTerms.length ? [sKey, "ProductDescription", "PrintName"] : [null];
+      var aFields = aTerms.length ? (aSearchFields || [sKey, "ProductDescription", "PrintName"]) : [null];
       var aRequests = aFields.map(function (sField) {
         return Promise.resolve().then(function () {
           var aFilters = aBaseFilters.slice();

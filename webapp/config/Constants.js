@@ -77,7 +77,7 @@ sap.ui.define([], function () {
   PLANT_SELECT: ["Plant", "PlantName"],
 
   COMPONENT_PATH: "/plant_component_vh",
-  COMPONENT_SELECT: ["component", "ProductDescription", "uom"],
+  COMPONENT_SELECT: ["component", "ProductDescription", "uom", "PrintName", "SizeName", "ColourName"],
 
   UOM_PATH: "/produtuom",
   UOM_SELECT: ["Product", "AlternativeUnit", "BaseUnit"],
