@@ -188,7 +188,7 @@ sap.ui.define(
         oController._oComponentTable = new Table({
           growing: true,
           growingThreshold: 100,
-          mode: "SingleSelectLeft",
+          mode: "MultiSelect",
           includeItemInSelection: true,
           columns: [
             new Column({
@@ -229,17 +229,9 @@ sap.ui.define(
           })
         });
 
-        oController._oComponentTable.attachItemPress(function (oEvent) {
-          var oItem = oEvent.getParameter("listItem");
-
-          if (oItem) {
-            oController._oComponentTable.setSelectedItem(oItem, true);
-          }
-        });
-
         oController._oComponentVHD = new ValueHelpDialog({
-          title: "Select Component",
-          supportMultiselect: false,
+          title: "Select Components",
+          supportMultiselect: true,
           supportRanges: false,
           filterBar: oFilterBar,
           stretch: false,
@@ -247,18 +239,18 @@ sap.ui.define(
           contentHeight: "60%",
 
           ok: function () {
-            var oSelectedItem = oController._oComponentTable.getSelectedItem();
+            var aSelectedItems = oController._oComponentTable.getSelectedItems();
 
-            if (!oSelectedItem) {
-              MessageBox.error("Please select one component.");
+            if (!aSelectedItems.length) {
+              MessageBox.error("Please select at least one component.");
               return;
             }
 
-            var oData = oSelectedItem
-              .getBindingContext()
-              .getObject();
+            var aSelectedComponents = aSelectedItems.map(function (oItem) {
+              return oItem.getBindingContext().getObject();
+            });
 
-            fnOnSelect(oData);
+            fnOnSelect(aSelectedComponents);
 
             that.clearComponentSearch(oController);
             oController._oComponentVHD.close();

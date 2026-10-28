@@ -765,11 +765,34 @@ sap.ui.define(
         ItemValueHelpHelper.openComponentValueHelp(
           that,
           null,
-          function (oData) {
-            that._applyComponentSelection(oData);
+          function (aComponents) {
+            that._applyComponentSelections(aComponents);
           }
         );
       },
+
+      _applyComponentSelections: function (aComponents) {
+          var oOriginalContext = this._oCurrentComponentContext;
+
+          if (!oOriginalContext || !aComponents || !aComponents.length) {
+            return;
+          }
+
+          var oItemModel = oOriginalContext.getModel();
+
+          try {
+            aComponents.forEach(function (oComponent, iIndex) {
+              if (iIndex > 0) {
+                this.onAddRow();
+                var aItems = oItemModel.getProperty("/items") || [];
+                this._oCurrentComponentContext = oItemModel.getContext("/items/" + (aItems.length - 1));
+              }
+              this._applyComponentSelection(oComponent);
+            }, this);
+          } finally {
+            this._oCurrentComponentContext = oOriginalContext;
+          }
+        },
 
       _applyComponentSelection: function (oData) {
         var oContext = this._oCurrentComponentContext;
