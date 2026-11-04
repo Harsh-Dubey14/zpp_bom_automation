@@ -20,7 +20,8 @@ sap.ui.define(
         "zppbomautomation/service/BomActionService",
         "zppbomautomation/service/ItemScreenService",
         "zppbomautomation/util/ItemValueHelpHelper",
-        "zppbomautomation/util/ErrorHelper"
+        "zppbomautomation/util/ErrorHelper",
+    "zppbomautomation/util/ItemExcel"
     ],
     function (
         Controller,
@@ -40,11 +41,12 @@ sap.ui.define(
         BomActionService,
         ItemScreenService,
         ItemValueHelpHelper,
-        ErrorHelper
+        ErrorHelper,
+    ItemExcel
     ) {
         "use strict";
 
-        return Controller.extend("zppbomautomation.controller.BOMChangeItem", {
+        return Controller.extend("zppbomautomation.controller.BOMChangeItem", Object.assign({}, ItemExcel, {
             onInit: function () {
                 ResultModel.init(this.getView());
 
@@ -117,6 +119,7 @@ sap.ui.define(
 
                 ResultModel.reset(this.getView().getModel("resultModel"));
                 this._setResultInitial(this.getView().getModel("resultModel"));
+                this.getOwnerComponent().unsavedChanges.begin(this.getView());
             },
 
             _normalizeChangeHeaderData: function (oHeaderData, oFirstItem) {
@@ -285,31 +288,14 @@ sap.ui.define(
             },
 
             onNavBack: function () {
-                this.getOwnerComponent()
-                    .getRouter()
-                    .navTo(Constants.ROUTES.CHANGE, {}, true);
+                this.getOwnerComponent().unsavedChanges.confirmLeave(function () {
+                    this._clearChangeBomData();
+                    this.getOwnerComponent().getRouter().navTo(Constants.ROUTES.CHANGE, {}, true);
+                }.bind(this));
             },
 
             onCancel: function () {
-                var that = this;
-
-                MessageBox.warning(
-                    "Are you sure you want to cancel? Unsaved BOM changes will be lost.",
-                    {
-                        actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-                        emphasizedAction: MessageBox.Action.OK,
-
-                        onClose: function (sAction) {
-                            if (sAction === MessageBox.Action.OK) {
-                                that._clearChangeBomData();
-
-                                that.getOwnerComponent()
-                                    .getRouter()
-                                    .navTo(Constants.ROUTES.CHANGE, {}, true);
-                            }
-                        }
-                    }
-                );
+                this.onNavBack();
             },
 
             onAddRow: function () {
@@ -1235,6 +1221,7 @@ sap.ui.define(
                     }
 
                     await this._refreshChangeBomItemsAfterSave();
+                    this.getOwnerComponent().unsavedChanges.markClean();
 
                     this._setResultSuccess(
                         oResultModel,
@@ -2259,6 +2246,6 @@ sap.ui.define(
             _getErrorText: function (oError) {
                 return ErrorHelper.getErrorText(oError);
             }
-        });
+        }));
     }
 );

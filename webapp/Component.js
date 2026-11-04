@@ -1,7 +1,8 @@
 sap.ui.define([
     "sap/ui/core/UIComponent",
-    "zppbomautomation/model/models"
-], (UIComponent, models) => {
+    "zppbomautomation/model/models",
+    "zppbomautomation/util/UnsavedChanges"
+], (UIComponent, models, UnsavedChanges) => {
     "use strict";
 
     return UIComponent.extend("zppbomautomation.Component", {
@@ -20,7 +21,13 @@ sap.ui.define([
             this.setModel(models.createDeviceModel(), "device");
 
             // enable routing
+            this.unsavedChanges = new UnsavedChanges(this);
             this.getRouter().initialize();
+        },
+
+        destroy() {
+            this.unsavedChanges.destroy();
+            UIComponent.prototype.destroy.apply(this, arguments);
         }
     });
 });
